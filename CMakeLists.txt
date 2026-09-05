@@ -1,23 +1,22 @@
 cmake_minimum_required(VERSION 3.22)
-project(JuceMinimum VERSION 0.1.0 LANGUAGES CXX)
+project(JuceSteps VERSION 0.1.0 LANGUAGES CXX)
 
 find_package(JUCE CONFIG REQUIRED)
-#find_package(PkgConfig REQUIRED)
 
 # Linux用のlibcurlパッケージを検索する設定
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     find_package(CURL REQUIRED)
 endif()
 
-juce_add_gui_app(JuceMinimum
-    PRODUCT_NAME "JuceMinimum"
+juce_add_gui_app(JuceSteps
+    PRODUCT_NAME "JuceSteps"
 )
 
-target_sources(JuceMinimum PRIVATE
+target_sources(JuceSteps PRIVATE
     Main.cpp
 )
 
-target_link_libraries(JuceMinimum PRIVATE
+target_link_libraries(JuceSteps PRIVATE
     juce::juce_core
     juce::juce_gui_basics
     juce::juce_graphics
@@ -29,10 +28,10 @@ target_link_libraries(JuceMinimum PRIVATE
 
 # Linux環境の場合、明示的にCURL（libcurl）をリンクする
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    target_link_libraries(JuceMinimum PRIVATE CURL::libcurl)
+    target_link_libraries(JuceSteps PRIVATE CURL::libcurl)
 endif()
 
-target_compile_definitions(JuceMinimum PRIVATE
+target_compile_definitions(JuceSteps PRIVATE
     JUCE_APPLICATION_NAME="${PROJECT_NAME}"
     JUCE_APPLICATION_VERSION="${PROJECT_VERSION}"
 )
