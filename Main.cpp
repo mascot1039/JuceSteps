@@ -85,6 +85,82 @@ public:
         };
 
 
+        // --- 【修正版】TIE（タイ）ボタンの設定 ---
+        tieButton.setButtonText(juce::String::fromUTF8("TIE (タイ)"));
+        addAndMakeVisible(tieButton);
+
+        tieButton.onClick = [this]() {
+            // 1. 直前の入力データを解析して、ゲートタイム（GT）を伸ばす処理
+            juce::String allText = stepDataDisplay.getText();
+
+            juce::StringArray lines;
+            lines.addLines(allText);
+
+            int lastLineIndex = lines.size() - 1;
+            while (lastLineIndex >= 0 && lines[lastLineIndex].trim().isEmpty()) {
+                lastLineIndex--;
+            }
+
+            if (lastLineIndex >= 0)
+            {
+                juce::String lastLine = lines[lastLineIndex];
+
+                if (lastLine.contains("Note:"))
+                {
+                    int st = (int)stepTimeSlider.getValue();
+
+                    // 「GT:」の位置を正しく検索 (開始位置, 探す文字列)
+                    int gtIndex = lastLine.indexOf(0, "GT:");
+
+                    if (gtIndex >= 0)
+                    {
+                        // 「GT:」の直後の3文字を切り出して数値にする
+                        int gtStart = gtIndex + 3;
+                        int currentGT = lastLine.substring(gtStart, gtStart + 3).trim().getIntValue();
+
+                        // ゲートタイムを現在のSTの分だけ伸ばす！
+                        int newGT = currentGT + st;
+
+                        // 文字列の「GT:」の手前と、「ST:」以降を綺麗に分割する
+                        juce::String leftPart = lastLine.substring(0, gtStart);
+
+                        int stIndex = lastLine.indexOf(gtStart, "ST:");
+                        juce::String rightPart = lastLine.substring(stIndex);
+
+                        // 「GT:」の数値を3桁の幅で埋め直して合体
+                        juce::String newLine = leftPart + juce::String::formatted("%3d  ", newGT) + rightPart;
+
+                        lines.set(lastLineIndex, newLine);
+
+                        juce::String updatedText = "";
+                        for (auto& line : lines) {
+                            updatedText += line + "\n";
+                        }
+                        stepDataDisplay.setText(updatedText);
+                    }
+                }
+            }
+
+            // 2. 時間（位置）をステップタイム分だけ進める（確定やSKIPと同じ計算）
+            int meas = (int)measureSlider.getValue();
+            int beat = (int)beatSlider.getValue();
+            int clk  = (int)clockSlider.getValue();
+            int st   = (int)stepTimeSlider.getValue();
+
+            long currentTotalClocks = ((meas - 1) * 384) + ((beat - 1) * 96) + (clk - 1);
+            long nextTotalClocks = currentTotalClocks + st;
+
+            int nextMeas = (int)(nextTotalClocks / 384) + 1;
+            int remain   = (int)(nextTotalClocks % 384);
+            int nextBeat = (remain / 96) + 1;
+            int nextClk  = (remain % 96) + 1;
+
+            measureSlider.setValue(nextMeas);
+            beatSlider.setValue(nextBeat);
+            clockSlider.setValue(nextClk);
+        };
+
+
         // --- 各入力欄の設定（初期値と範囲） ---
         measureLabel.setText(juce::String::fromUTF8("メジャー"), juce::dontSendNotification);
         beatLabel.setText(juce::String::fromUTF8("ビート"), juce::dontSendNotification);
@@ -181,6 +257,8 @@ public:
         autoForwardButton.setBounds(buttonArea.removeFromTop(40));
         buttonArea.removeFromTop(gap);
         skipButton.setBounds(buttonArea.removeFromTop(40));
+        buttonArea.removeFromTop(gap);
+        tieButton.setBounds(buttonArea.removeFromTop(40));
     }
 
 private:
@@ -215,6 +293,7 @@ private:
     juce::TextButton myButton;
     juce::TextButton autoForwardButton;
     juce::TextButton skipButton;
+    juce::TextButton tieButton;
 
     // 入力アイテム群（スライダー・ラベル）
     juce::Slider measureSlider;
