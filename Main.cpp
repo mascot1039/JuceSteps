@@ -59,7 +59,7 @@ public:
         addAndMakeVisible(autoForwardButton);
         autoForwardButton.onClick = [this]() {
             if (autoForwardButton.getToggleState()) {
-                autoForwardButton.setButtonText(juce::String::fromUTF8("Auto Forward: ON 🔥"));
+                autoForwardButton.setButtonText(juce::String::fromUTF8("Auto Forward: ON"));
             } else {
                 autoForwardButton.setButtonText(juce::String::fromUTF8("Auto Forward: OFF"));
             }
@@ -233,6 +233,24 @@ public:
         };
 
 
+        // --- 【修正版】音符プリセットボタンの設定 ---
+        btnNote4.setButtonText(juce::String::fromUTF8("[ 4分音符 ]  ST:96"));
+        btnNote8.setButtonText(juce::String::fromUTF8("[ 8分音符 ]  ST:48"));
+        btnNote16.setButtonText(juce::String::fromUTF8("[16分音符 ]  ST:24"));
+        btnNote32.setButtonText(juce::String::fromUTF8("[32分音符 ]  ST:12"));
+
+        // 各ボタンが押されたら、ステップとゲートの値を一発で変更するラムダ関数
+        btnNote4.onClick  = [this]() { stepTimeSlider.setValue(96); gateTimeSlider.setValue(96); };
+        btnNote8.onClick  = [this]() { stepTimeSlider.setValue(48); gateTimeSlider.setValue(48); };
+        btnNote16.onClick = [this]() { stepTimeSlider.setValue(24); gateTimeSlider.setValue(24); };
+        btnNote32.onClick = [this]() { stepTimeSlider.setValue(12); gateTimeSlider.setValue(12); };
+
+        addAndMakeVisible(btnNote4);
+        addAndMakeVisible(btnNote8);
+        addAndMakeVisible(btnNote16);
+        addAndMakeVisible(btnNote32);
+
+
         // --- 各入力欄の設定（初期値と範囲） ---
         measureLabel.setText(juce::String::fromUTF8("メジャー"), juce::dontSendNotification);
         beatLabel.setText(juce::String::fromUTF8("ビート"), juce::dontSendNotification);
@@ -321,21 +339,38 @@ public:
             sliders[i]->setBounds(itemArea.reduced(2, 2));
         }
 
-        // 3. 【左上】 ボタンエリア
+        // 3. 【左上】 MC-50 button エリア
         bounds.removeFromBottom(gap);
         buttonGroup.setBounds(bounds);
 
-        // ボタンを縦にきれいに並べる
+        // ボタンの配置エリア全体（内側の余白をとる）
         auto buttonArea = bounds.reduced(15, 10).withTrimmedTop(25);
-        myButton.setBounds(buttonArea.removeFromTop(40));
-        buttonArea.removeFromTop(gap);
-        autoForwardButton.setBounds(buttonArea.removeFromTop(40));
-        buttonArea.removeFromTop(gap);
-        skipButton.setBounds(buttonArea.removeFromTop(40));
-        buttonArea.removeFromTop(gap);
-        tieButton.setBounds(buttonArea.removeFromTop(40));
-        buttonArea.removeFromTop(gap);
-        deleteButton.setBounds(buttonArea.removeFromTop(40));
+
+        // 領域を左右「2つの列」に分割する
+        int columnWidth = (buttonArea.getWidth() - gap) / 2;
+        auto leftColumn = buttonArea.removeFromLeft(columnWidth);
+        buttonArea.removeFromLeft(gap); // 隙間
+        auto rightColumn = buttonArea;   // 残った右側の列
+
+        // 【左側の列】 これまでの操作系ボタン（確定、Auto Fwd、SKIP、TIE、DELETE）
+        myButton.setBounds(leftColumn.removeFromTop(30));
+        leftColumn.removeFromTop(gap);
+        autoForwardButton.setBounds(leftColumn.removeFromTop(30));
+        leftColumn.removeFromTop(gap);
+        skipButton.setBounds(leftColumn.removeFromTop(30));
+        leftColumn.removeFromTop(gap);
+        tieButton.setBounds(leftColumn.removeFromTop(30));
+        leftColumn.removeFromTop(gap);
+        deleteButton.setBounds(leftColumn.removeFromTop(30));
+
+        // 【右側の列】 新しい音符プリセットボタン
+        btnNote4.setBounds(rightColumn.removeFromTop(35));
+        rightColumn.removeFromTop(gap);
+        btnNote8.setBounds(rightColumn.removeFromTop(35));
+        rightColumn.removeFromTop(gap);
+        btnNote16.setBounds(rightColumn.removeFromTop(35));
+        rightColumn.removeFromTop(gap);
+        btnNote32.setBounds(rightColumn.removeFromTop(35));
     }
 
     // --- 【新機能】パソコンのキーボードが押されたときに呼び出される関数 ---
@@ -362,6 +397,14 @@ public:
         {
             if (skipButton.onClick != nullptr) {
                 skipButton.onClick();   // SKIPボタンの処理を実行！
+                return true;
+            }
+        }
+        // 4. ★【新機能】「T」または「t」キー が押されたとき
+        else if (key.getKeyCode() == 'T' || key.getKeyCode() == 't')
+        {
+            if (tieButton.onClick != nullptr) {
+                tieButton.onClick();    // TIEボタンの処理を実行！
                 return true;
             }
         }
@@ -403,6 +446,12 @@ private:
     juce::TextButton skipButton;
     juce::TextButton tieButton;
     juce::TextButton deleteButton;
+
+    // --- 【新機能】音符プリセットボタンの変数群 ---
+    juce::TextButton btnNote4;  // 4分音符 (96)
+    juce::TextButton btnNote8;  // 8分音符 (48)
+    juce::TextButton btnNote16; // 16分音符 (24)
+    juce::TextButton btnNote32; // 32分音符 (12)
 
     // 入力アイテム群（スライダー・ラベル）
     juce::Slider measureSlider;
