@@ -85,7 +85,7 @@ public:
         };
 
 
-        // --- 【修正版】TIE（タイ）ボタンの設定 ---
+        // --- TIE（タイ）ボタンの設定 ---
         tieButton.setButtonText(juce::String::fromUTF8("TIE (タイ)"));
         addAndMakeVisible(tieButton);
 
@@ -161,6 +161,78 @@ public:
         };
 
 
+        // --- DELETE（巻き戻し）ボタンの設定 ---
+        deleteButton.setButtonText(juce::String::fromUTF8("DELETE (消去)"));
+        addAndMakeVisible(deleteButton);
+
+        deleteButton.onClick = [this]() {
+            juce::String allText = stepDataDisplay.getText();
+
+            juce::StringArray lines;
+            lines.addLines(allText);
+
+            // 空行を除外して、実際にデータが入っている最後の行を探す
+            int lastLineIndex = lines.size() - 1;
+            while (lastLineIndex >= 0 && lines[lastLineIndex].trim().isEmpty()) {
+                lastLineIndex--;
+            }
+
+            // タイトル行（--- MC-50 STEP DATA DISPLAY ---）は消さないようにする
+            if (lastLineIndex > 0)
+            {
+                juce::String lastLine = lines[lastLineIndex];
+                int rollbackClocks = 0;
+
+                // 消す行から「ST:」の位置を探して、ステップタイムを読み取る
+                int stIndex = lastLine.indexOf(0, "ST:");
+                if (stIndex >= 0)
+                {
+                    rollbackClocks = lastLine.substring(stIndex + 3).trim().getIntValue();
+                }
+
+                // 1. 最後の1行を削除してディスプレイを更新
+                lines.remove(lastLineIndex);
+
+                juce::String updatedText = "";
+                for (int i = 0; i <= lines.size() - 1; ++i) {
+                    if (!lines[i].trim().isEmpty() || i == 0) {
+                        updatedText += lines[i] + "\n";
+                    }
+                }
+                stepDataDisplay.setText(updatedText);
+
+                // 2. 読み取ったステップタイムの分だけ、時間を「巻き戻す」計算
+                if (rollbackClocks > 0)
+                {
+                    int meas = (int)measureSlider.getValue();
+                    int beat = (int)beatSlider.getValue();
+                    int clk  = (int)clockSlider.getValue();
+
+                    // 現在位置を通算クロックに変換
+                    long currentTotalClocks = ((meas - 1) * 384) + ((beat - 1) * 96) + (clk - 1);
+
+                    // ステップタイム分だけ引き算する
+                    long prevTotalClocks = currentTotalClocks - rollbackClocks;
+
+                    // 1小節目の頭（0クロック）より前には戻らないようにガード
+                    if (prevTotalClocks < 0) {
+                        prevTotalClocks = 0;
+                    }
+
+                    // 新しい「小節・拍・クロック」を逆算してスライダーにセット
+                    int nextMeas = (int)(prevTotalClocks / 384) + 1;
+                    int remain   = (int)(prevTotalClocks % 384);
+                    int nextBeat = (remain / 96) + 1;
+                    int nextClk  = (remain % 96) + 1;
+
+                    measureSlider.setValue(nextMeas);
+                    beatSlider.setValue(nextBeat);
+                    clockSlider.setValue(nextClk);
+                }
+            }
+        };
+
+
         // --- 各入力欄の設定（初期値と範囲） ---
         measureLabel.setText(juce::String::fromUTF8("メジャー"), juce::dontSendNotification);
         beatLabel.setText(juce::String::fromUTF8("ビート"), juce::dontSendNotification);
@@ -211,6 +283,9 @@ public:
         gateTimeSlider.setValue(24);
         stepTimeSlider.setValue(24);
 
+        // --- 【新機能】コンポーネントがキーボードのフォーカスを受け取れるようにする ---
+        setWantsKeyboardFocus(true);
+
         setSize(800, 600);
     }
 
@@ -250,7 +325,7 @@ public:
         bounds.removeFromBottom(gap);
         buttonGroup.setBounds(bounds);
 
-        // 3つのボタンを縦にきれいに並べる
+        // ボタンを縦にきれいに並べる
         auto buttonArea = bounds.reduced(15, 10).withTrimmedTop(25);
         myButton.setBounds(buttonArea.removeFromTop(40));
         buttonArea.removeFromTop(gap);
@@ -259,6 +334,39 @@ public:
         skipButton.setBounds(buttonArea.removeFromTop(40));
         buttonArea.removeFromTop(gap);
         tieButton.setBounds(buttonArea.removeFromTop(40));
+        buttonArea.removeFromTop(gap);
+        deleteButton.setBounds(buttonArea.removeFromTop(40));
+    }
+
+    // --- 【新機能】パソコンのキーボードが押されたときに呼び出される関数 ---
+    bool keyPressed (const juce::KeyPress& key) override
+    {
+        // 1. Backspaceキー または Deleteキー が押されたとき
+        if (key == juce::KeyPress::backspaceKey || key == juce::KeyPress::deleteKey)
+        {
+            if (deleteButton.onClick != nullptr) {
+                deleteButton.onClick(); // DELETEボタンの処理を実行！
+                return true;            // キー入力を処理したことをJUCEに伝える
+            }
+        }
+        // 2. Enterキー（テンキーのEnterも含む）が押されたとき
+        else if (key == juce::KeyPress::returnKey)
+        {
+            if (myButton.onClick != nullptr) {
+                myButton.onClick();     // 確定ボタンの処理を実行！
+                return true;
+            }
+        }
+        // 3. Spaceキー が押されたとき
+        else if (key == juce::KeyPress::spaceKey)
+        {
+            if (skipButton.onClick != nullptr) {
+                skipButton.onClick();   // SKIPボタンの処理を実行！
+                return true;
+            }
+        }
+
+        return false; // 使わないキーはスルーする
     }
 
 private:
@@ -294,6 +402,7 @@ private:
     juce::TextButton autoForwardButton;
     juce::TextButton skipButton;
     juce::TextButton tieButton;
+    juce::TextButton deleteButton;
 
     // 入力アイテム群（スライダー・ラベル）
     juce::Slider measureSlider;
