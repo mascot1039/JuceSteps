@@ -1,15 +1,11 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
-// ==============================================================================
-// 1. メイン画面のコンポーネント (MainComponent)
-// ==============================================================================
 class MainComponent : public juce::Component {
 public:
     MainComponent() {
-        // 日本語フォント（ゴシック体）の設定
         juce::LookAndFeel::getDefaultLookAndFeel().setDefaultSansSerifTypefaceName("IPAGothic");
 
-        // --- 右側：ディスプレイエリアの設定 ---
+        // --- 右側・左上・下部の枠設定 ---
         addAndMakeVisible(stepDataDisplay);
         stepDataDisplay.setMultiLine(true);
         stepDataDisplay.setReadOnly(true);
@@ -20,7 +16,6 @@ public:
         stepDataDisplay.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 15.0f, juce::Font::plain));
         stepDataDisplay.setText(juce::String::fromUTF8("--- MC-50 STEP DATA DISPLAY ---\n"));
 
-        // --- 各グループ枠の設定 ---
         addAndMakeVisible(buttonGroup);
         buttonGroup.setText(juce::String::fromUTF8("MC-50 ボタンエリア"));
 
@@ -28,7 +23,21 @@ public:
         inputArea.setText(juce::String::fromUTF8("入力エリア"));
 
 
-        // --- ボタンの設定：1. ステップ確定 (ENTER) ---
+        // --- Auto Forward（自動進み）ボタンの設定 ---
+        autoForwardButton.setButtonText(juce::String::fromUTF8("Auto Forward: OFF"));
+        autoForwardButton.setClickingTogglesState(true);
+        addAndMakeVisible(autoForwardButton);
+
+        autoForwardButton.onClick = [this]() {
+            if (autoForwardButton.getToggleState()) {
+                autoForwardButton.setButtonText(juce::String::fromUTF8("Auto Forward: *ACTIVE*"));
+            } else {
+                autoForwardButton.setButtonText(juce::String::fromUTF8("Auto Forward: OFF"));
+            }
+        };
+
+
+        // --- 送信ボタンの設定（ステップ確定） ---
         myButton.setButtonText(juce::String::fromUTF8("ステップ確定 (ENTER)"));
         addAndMakeVisible(myButton);
         myButton.onClick = [this]() {
@@ -41,32 +50,17 @@ public:
 
             juce::String noteText = noteSlider.getTextFromValue(noteSlider.getValue());
 
-            // ディスプレイへデータを送信
             juce::String logLine = juce::String::formatted("[%03d-%02d-%03d] Note:%-4s V:%3d  GT:%3d  ST:%3d\n",
                                                         meas, beat, clk, noteText.toRawUTF8(), vel, gt, st);
             stepDataDisplay.insertTextAtCaret(logLine);
 
-            // Auto Forward が ON なら、ステップタイム分だけ時間を進める
             if (autoForwardButton.getToggleState()) {
-                advanceTime(st);
+                advancePosition(st);
             }
         };
 
 
-        // --- ボタンの設定：2. Auto Forward (ON/OFF) ---
-        autoForwardButton.setButtonText(juce::String::fromUTF8("Auto Forward: OFF"));
-        autoForwardButton.setClickingTogglesState(true); // 押すたびにON/OFFが切り替わる設定
-        addAndMakeVisible(autoForwardButton);
-        autoForwardButton.onClick = [this]() {
-            if (autoForwardButton.getToggleState()) {
-                autoForwardButton.setButtonText(juce::String::fromUTF8("Auto Forward: ON"));
-            } else {
-                autoForwardButton.setButtonText(juce::String::fromUTF8("Auto Forward: OFF"));
-            }
-        };
-
-
-        // --- ボタンの設定：3. SKIP (休符) ---
+        // --- SKIP（休符）ボタンの設定 ---
         skipButton.setButtonText(juce::String::fromUTF8("SKIP (休符)"));
         addAndMakeVisible(skipButton);
         skipButton.onClick = [this]() {
@@ -75,24 +69,19 @@ public:
             int clk  = (int)clockSlider.getValue();
             int st   = (int)stepTimeSlider.getValue();
 
-            // ディスプレイに休符（Rest）として記録を流す
             juce::String logLine = juce::String::formatted("[%03d-%02d-%03d] (Rest) ---------- ST:%3d\n",
                                                         meas, beat, clk, st);
             stepDataDisplay.insertTextAtCaret(logLine);
 
-            // 休符なので音は鳴らさず、時間だけをステップタイム分進める
-            advanceTime(st);
+            advancePosition(st);
         };
 
 
         // --- TIE（タイ）ボタンの設定 ---
         tieButton.setButtonText(juce::String::fromUTF8("TIE (タイ)"));
         addAndMakeVisible(tieButton);
-
         tieButton.onClick = [this]() {
-            // 1. 直前の入力データを解析して、ゲートタイム（GT）を伸ばす処理
             juce::String allText = stepDataDisplay.getText();
-
             juce::StringArray lines;
             lines.addLines(allText);
 
@@ -101,35 +90,21 @@ public:
                 lastLineIndex--;
             }
 
-            if (lastLineIndex >= 0)
-            {
+            if (lastLineIndex >= 0) {
                 juce::String lastLine = lines[lastLineIndex];
-
-                if (lastLine.contains("Note:"))
-                {
+                if (lastLine.contains("Note:")) {
                     int st = (int)stepTimeSlider.getValue();
-
-                    // 「GT:」の位置を正しく検索 (開始位置, 探す文字列)
                     int gtIndex = lastLine.indexOf(0, "GT:");
-
-                    if (gtIndex >= 0)
-                    {
-                        // 「GT:」の直後の3文字を切り出して数値にする
+                    if (gtIndex >= 0) {
                         int gtStart = gtIndex + 3;
                         int currentGT = lastLine.substring(gtStart, gtStart + 3).trim().getIntValue();
-
-                        // ゲートタイムを現在のSTの分だけ伸ばす！
                         int newGT = currentGT + st;
 
-                        // 文字列の「GT:」の手前と、「ST:」以降を綺麗に分割する
                         juce::String leftPart = lastLine.substring(0, gtStart);
-
                         int stIndex = lastLine.indexOf(gtStart, "ST:");
                         juce::String rightPart = lastLine.substring(stIndex);
 
-                        // 「GT:」の数値を3桁の幅で埋め直して合体
                         juce::String newLine = leftPart + juce::String::formatted("%3d  ", newGT) + rightPart;
-
                         lines.set(lastLineIndex, newLine);
 
                         juce::String updatedText = "";
@@ -141,56 +116,32 @@ public:
                 }
             }
 
-            // 2. 時間（位置）をステップタイム分だけ進める（確定やSKIPと同じ計算）
-            int meas = (int)measureSlider.getValue();
-            int beat = (int)beatSlider.getValue();
-            int clk  = (int)clockSlider.getValue();
-            int st   = (int)stepTimeSlider.getValue();
-
-            long currentTotalClocks = ((meas - 1) * 384) + ((beat - 1) * 96) + (clk - 1);
-            long nextTotalClocks = currentTotalClocks + st;
-
-            int nextMeas = (int)(nextTotalClocks / 384) + 1;
-            int remain   = (int)(nextTotalClocks % 384);
-            int nextBeat = (remain / 96) + 1;
-            int nextClk  = (remain % 96) + 1;
-
-            measureSlider.setValue(nextMeas);
-            beatSlider.setValue(nextBeat);
-            clockSlider.setValue(nextClk);
+            advancePosition((int)stepTimeSlider.getValue());
         };
 
 
-        // --- DELETE（巻き戻し）ボタンの設定 ---
+        // --- DELETE（消去）ボタンの設定 ---
         deleteButton.setButtonText(juce::String::fromUTF8("DELETE (消去)"));
         addAndMakeVisible(deleteButton);
-
         deleteButton.onClick = [this]() {
             juce::String allText = stepDataDisplay.getText();
-
             juce::StringArray lines;
             lines.addLines(allText);
 
-            // 空行を除外して、実際にデータが入っている最後の行を探す
             int lastLineIndex = lines.size() - 1;
             while (lastLineIndex >= 0 && lines[lastLineIndex].trim().isEmpty()) {
                 lastLineIndex--;
             }
 
-            // タイトル行（--- MC-50 STEP DATA DISPLAY ---）は消さないようにする
-            if (lastLineIndex > 0)
-            {
+            if (lastLineIndex > 0) {
                 juce::String lastLine = lines[lastLineIndex];
                 int rollbackClocks = 0;
 
-                // 消す行から「ST:」の位置を探して、ステップタイムを読み取る
                 int stIndex = lastLine.indexOf(0, "ST:");
-                if (stIndex >= 0)
-                {
+                if (stIndex >= 0) {
                     rollbackClocks = lastLine.substring(stIndex + 3).trim().getIntValue();
                 }
 
-                // 1. 最後の1行を削除してディスプレイを更新
                 lines.remove(lastLineIndex);
 
                 juce::String updatedText = "";
@@ -201,54 +152,36 @@ public:
                 }
                 stepDataDisplay.setText(updatedText);
 
-                // 2. 読み取ったステップタイムの分だけ、時間を「巻き戻す」計算
-                if (rollbackClocks > 0)
-                {
-                    int meas = (int)measureSlider.getValue();
-                    int beat = (int)beatSlider.getValue();
-                    int clk  = (int)clockSlider.getValue();
-
-                    // 現在位置を通算クロックに変換
-                    long currentTotalClocks = ((meas - 1) * 384) + ((beat - 1) * 96) + (clk - 1);
-
-                    // ステップタイム分だけ引き算する
-                    long prevTotalClocks = currentTotalClocks - rollbackClocks;
-
-                    // 1小節目の頭（0クロック）より前には戻らないようにガード
-                    if (prevTotalClocks < 0) {
-                        prevTotalClocks = 0;
-                    }
-
-                    // 新しい「小節・拍・クロック」を逆算してスライダーにセット
-                    int nextMeas = (int)(prevTotalClocks / 384) + 1;
-                    int remain   = (int)(prevTotalClocks % 384);
-                    int nextBeat = (remain / 96) + 1;
-                    int nextClk  = (remain % 96) + 1;
-
-                    measureSlider.setValue(nextMeas);
-                    beatSlider.setValue(nextBeat);
-                    clockSlider.setValue(nextClk);
+                if (rollbackClocks > 0) {
+                    rollbackPosition(rollbackClocks);
                 }
             }
         };
 
 
-        // --- 【修正版】音符プリセットボタンの設定 ---
-        btnNote4.setButtonText(juce::String::fromUTF8("[ 4分音符 ]  ST:96"));
-        btnNote8.setButtonText(juce::String::fromUTF8("[ 8分音符 ]  ST:48"));
-        btnNote16.setButtonText(juce::String::fromUTF8("[16分音符 ]  ST:24"));
-        btnNote32.setButtonText(juce::String::fromUTF8("[32分音符 ]  ST:12"));
+        // --- 音符プリセットボタンの設定 ---
+        btnNote4.setButtonText(juce::String::fromUTF8("[ 4分音符 ] ST:96"));
+        btnNote8.setButtonText(juce::String::fromUTF8("[ 8分音符 ] ST:48"));
+        btnNote16.setButtonText(juce::String::fromUTF8("[16分音符 ] ST:24"));
+        btnNote32.setButtonText(juce::String::fromUTF8("[32分音符 ] ST:12"));
+        btnNote8T.setButtonText(juce::String::fromUTF8("[ 8分3連  ] ST:32"));
+        btnNote16T.setButtonText(juce::String::fromUTF8("[16分3連 ] ST:16"));
+        btnNote8D.setButtonText(juce::String::fromUTF8("[付点8分  ] ST:72"));
+        btnNote16D.setButtonText(juce::String::fromUTF8("[付点16分 ] ST:36"));
 
-        // 各ボタンが押されたら、ステップとゲートの値を一発で変更するラムダ関数
-        btnNote4.onClick  = [this]() { stepTimeSlider.setValue(96); gateTimeSlider.setValue(96); };
-        btnNote8.onClick  = [this]() { stepTimeSlider.setValue(48); gateTimeSlider.setValue(48); };
-        btnNote16.onClick = [this]() { stepTimeSlider.setValue(24); gateTimeSlider.setValue(24); };
-        btnNote32.onClick = [this]() { stepTimeSlider.setValue(12); gateTimeSlider.setValue(12); };
+        btnNote4.onClick   = [this]() { setStepAndGate(96); };
+        btnNote8.onClick   = [this]() { setStepAndGate(48); };
+        btnNote16.onClick  = [this]() { setStepAndGate(24); };
+        btnNote32.onClick  = [this]() { setStepAndGate(12); };
+        btnNote8T.onClick  = [this]() { setStepAndGate(32); };
+        btnNote16T.onClick = [this]() { setStepAndGate(16); };
+        btnNote8D.onClick  = [this]() { setStepAndGate(72); };
+        btnNote16D.onClick = [this]() { setStepAndGate(36); };
 
-        addAndMakeVisible(btnNote4);
-        addAndMakeVisible(btnNote8);
-        addAndMakeVisible(btnNote16);
-        addAndMakeVisible(btnNote32);
+        addAndMakeVisible(btnNote4);   addAndMakeVisible(btnNote8);
+        addAndMakeVisible(btnNote16);  addAndMakeVisible(btnNote32);
+        addAndMakeVisible(btnNote8T);  addAndMakeVisible(btnNote16T);
+        addAndMakeVisible(btnNote8D);  addAndMakeVisible(btnNote16D);
 
 
         // --- 各入力欄の設定（初期値と範囲） ---
@@ -260,15 +193,14 @@ public:
         gateTimeLabel.setText(juce::String::fromUTF8("ゲート"), juce::dontSendNotification);
         stepTimeLabel.setText(juce::String::fromUTF8("ステップ"), juce::dontSendNotification);
 
-        measureSlider.setRange(1, 999, 1);   // 1〜999小節
-        beatSlider.setRange(1, 4, 1);        // 1〜4拍（4/4拍子想定）
-        clockSlider.setRange(1, 96, 1);      // 1〜96クロック（1拍=96クロック）
+        measureSlider.setRange(1, 999, 1);
+        beatSlider.setRange(1, 4, 1);
+        clockSlider.setRange(1, 96, 1);
         noteSlider.setRange(0, 127, 1);
         velocitySlider.setRange(0, 127, 1);
         gateTimeSlider.setRange(1, 9999, 1);
         stepTimeSlider.setRange(1, 9999, 1);
 
-        // ノート番号(0-127)をMIDI音名（C4など）に変換するルール
         noteSlider.textFromValueFunction = [](double value) {
             int noteNum = (int)value;
             const char* noteNames[] = { "C ", "C#", "D ", "D#", "E ", "F ", "F#", "G ", "G#", "A ", "A#", "B " };
@@ -276,13 +208,13 @@ public:
         };
         noteSlider.valueFromTextFunction = [](const juce::String& text) { return (double)text.getIntValue(); };
 
-        // 7つの入力項目を一括で画面に登録＆スタイル設定
         juce::Slider* sliders[] = { &measureSlider, &beatSlider, &clockSlider, &noteSlider, &velocitySlider, &gateTimeSlider, &stepTimeSlider };
         juce::Label* labels[]   = { &measureLabel, &beatLabel, &clockLabel, &noteLabel, &velocityLabel, &gateTimeLabel, &stepTimeLabel };
 
         for (int i = 0; i < 7; ++i)
         {
             addAndMakeVisible(labels[i]);
+
             labels[i]->setJustificationType(juce::Justification::centred);
 
             addAndMakeVisible(sliders[i]);
@@ -292,18 +224,16 @@ public:
             sliders[i]->setSliderSnapsToMousePosition(false);
         }
 
-        // 初期値の安全なセット（16分音符=24クロックを基準に設定）
+        // 初期値を安全にセット
         measureSlider.setValue(1);
         beatSlider.setValue(1);
         clockSlider.setValue(1);
-        noteSlider.setValue(60); // 真ん中のC (C4)
+        noteSlider.setValue(60);
         velocitySlider.setValue(100);
         gateTimeSlider.setValue(24);
         stepTimeSlider.setValue(24);
 
-        // --- 【新機能】コンポーネントがキーボードのフォーカスを受け取れるようにする ---
         setWantsKeyboardFocus(true);
-
         setSize(800, 600);
     }
 
@@ -315,17 +245,16 @@ public:
         auto bounds = getLocalBounds().reduced(5);
         const int gap = 5;
 
-        // 1. 【右側】 ディスプレイエリア (幅40%)
+        // 1. 【右側】 Display STEP data エリア（40%）
         auto rightWidth = bounds.getWidth() * 0.4;
         stepDataDisplay.setBounds(bounds.removeFromRight(rightWidth));
         bounds.removeFromRight(gap);
 
-        // 2. 【下部】 入力エリア (高さ20%)
+        // 2. 【下部】 入力エリア（20%）
         auto bottomHeight = bounds.getHeight() * 0.2;
         auto inputBounds = bounds.removeFromBottom(bottomHeight);
         inputArea.setBounds(inputBounds);
 
-        // 入力エリアの中身を7等分して横に並べる
         auto contentBounds = inputBounds.reduced(10, 5).withTrimmedTop(15);
         int itemWidth = contentBounds.getWidth() / 7;
 
@@ -343,96 +272,114 @@ public:
         bounds.removeFromBottom(gap);
         buttonGroup.setBounds(bounds);
 
-        // ボタンの配置エリア全体（内側の余白をとる）
         auto buttonArea = bounds.reduced(15, 10).withTrimmedTop(25);
 
-        // 領域を左右「2つの列」に分割する
         int columnWidth = (buttonArea.getWidth() - gap) / 2;
         auto leftColumn = buttonArea.removeFromLeft(columnWidth);
-        buttonArea.removeFromLeft(gap); // 隙間
-        auto rightColumn = buttonArea;   // 残った右側の列
+        buttonArea.removeFromLeft(gap);
+        auto rightColumn = buttonArea;
 
-        // 【左側の列】 これまでの操作系ボタン（確定、Auto Fwd、SKIP、TIE、DELETE）
-        myButton.setBounds(leftColumn.removeFromTop(30));
+        // 【左側の列】 操作系ボタン
+        myButton.setBounds(leftColumn.removeFromTop(28));
         leftColumn.removeFromTop(gap);
-        autoForwardButton.setBounds(leftColumn.removeFromTop(30));
+        autoForwardButton.setBounds(leftColumn.removeFromTop(28));
         leftColumn.removeFromTop(gap);
-        skipButton.setBounds(leftColumn.removeFromTop(30));
+        skipButton.setBounds(leftColumn.removeFromTop(28));
         leftColumn.removeFromTop(gap);
-        tieButton.setBounds(leftColumn.removeFromTop(30));
+        tieButton.setBounds(leftColumn.removeFromTop(28));
         leftColumn.removeFromTop(gap);
-        deleteButton.setBounds(leftColumn.removeFromTop(30));
+        deleteButton.setBounds(leftColumn.removeFromTop(28));
 
-        // 【右側の列】 新しい音符プリセットボタン
-        btnNote4.setBounds(rightColumn.removeFromTop(35));
-        rightColumn.removeFromTop(gap);
-        btnNote8.setBounds(rightColumn.removeFromTop(35));
-        rightColumn.removeFromTop(gap);
-        btnNote16.setBounds(rightColumn.removeFromTop(35));
-        rightColumn.removeFromTop(gap);
-        btnNote32.setBounds(rightColumn.removeFromTop(35));
+        // 【右側の列】 音符プリセットエリア
+        int subColumnWidth = (rightColumn.getWidth() - gap) / 2;
+        auto noteLeftSubColumn = rightColumn.removeFromLeft(subColumnWidth);
+        rightColumn.removeFromLeft(gap);
+        auto noteRightSubColumn = rightColumn;
+
+        btnNote4.setBounds(noteLeftSubColumn.removeFromTop(35));
+        noteLeftSubColumn.removeFromTop(gap);
+        btnNote8.setBounds(noteLeftSubColumn.removeFromTop(35));
+        noteLeftSubColumn.removeFromTop(gap);
+        btnNote16.setBounds(noteLeftSubColumn.removeFromTop(35));
+        noteLeftSubColumn.removeFromTop(gap);
+        btnNote32.setBounds(noteLeftSubColumn.removeFromTop(35));
+
+        btnNote8T.setBounds(noteRightSubColumn.removeFromTop(35));
+        noteRightSubColumn.removeFromTop(gap);
+        btnNote16T.setBounds(noteRightSubColumn.removeFromTop(35));
+        noteRightSubColumn.removeFromTop(gap);
+        btnNote8D.setBounds(noteRightSubColumn.removeFromTop(35));
+        noteRightSubColumn.removeFromTop(gap);
+        btnNote16D.setBounds(noteRightSubColumn.removeFromTop(35));
     }
 
-    // --- 【新機能】パソコンのキーボードが押されたときに呼び出される関数 ---
     bool keyPressed (const juce::KeyPress& key) override
     {
-        // 1. Backspaceキー または Deleteキー が押されたとき
         if (key == juce::KeyPress::backspaceKey || key == juce::KeyPress::deleteKey)
         {
-            if (deleteButton.onClick != nullptr) {
-                deleteButton.onClick(); // DELETEボタンの処理を実行！
-                return true;            // キー入力を処理したことをJUCEに伝える
-            }
+            if (deleteButton.onClick != nullptr) { deleteButton.onClick(); return true; }
         }
-        // 2. Enterキー（テンキーのEnterも含む）が押されたとき
         else if (key == juce::KeyPress::returnKey)
         {
-            if (myButton.onClick != nullptr) {
-                myButton.onClick();     // 確定ボタンの処理を実行！
-                return true;
-            }
+            if (myButton.onClick != nullptr) { myButton.onClick(); return true; }
         }
-        // 3. Spaceキー が押されたとき
         else if (key == juce::KeyPress::spaceKey)
         {
-            if (skipButton.onClick != nullptr) {
-                skipButton.onClick();   // SKIPボタンの処理を実行！
-                return true;
-            }
+            if (skipButton.onClick != nullptr) { skipButton.onClick(); return true; }
         }
-        // 4. ★【新機能】「T」または「t」キー が押されたとき
         else if (key.getKeyCode() == 'T' || key.getKeyCode() == 't')
         {
-            if (tieButton.onClick != nullptr) {
-                tieButton.onClick();    // TIEボタンの処理を実行！
-                return true;
-            }
+            if (tieButton.onClick != nullptr) { tieButton.onClick(); return true; }
         }
-
-        return false; // 使わないキーはスルーする
+        return false;
     }
 
 private:
-    // --- 【共通処理】ステップタイムの分だけ時間を進める計算メソッド ---
-    void advanceTime(int stepTimeClocks) {
+    // --- 【重要】コンパイルエラーを解消する位置計算・プリセット関数群 ---
+    void advancePosition (int clocksToAdd)
+    {
         int meas = (int)measureSlider.getValue();
         int beat = (int)beatSlider.getValue();
         int clk  = (int)clockSlider.getValue();
 
-        // すべてを一度通算クロックに変換（1小節=384, 1拍=96クロック）
         long currentTotalClocks = ((meas - 1) * 384) + ((beat - 1) * 96) + (clk - 1);
-        long nextTotalClocks = currentTotalClocks + stepTimeClocks;
+        long nextTotalClocks = currentTotalClocks + clocksToAdd;
 
-        // 新しい 小節・拍・クロック を逆算
         int nextMeas = (int)(nextTotalClocks / 384) + 1;
         int remain   = (int)(nextTotalClocks % 384);
         int nextBeat = (remain / 96) + 1;
         int nextClk  = (remain % 96) + 1;
 
-        // 画面の数値を更新
-        measureSlider.setValue(nextMeas);
-        beatSlider.setValue(nextBeat);
-        clockSlider.setValue(nextClk);
+        measureSlider.setValue (nextMeas);
+        beatSlider.setValue (nextBeat);
+        clockSlider.setValue (nextClk);
+    }
+
+    void rollbackPosition (int clocksToRemove)
+    {
+        int meas = (int)measureSlider.getValue();
+        int beat = (int)beatSlider.getValue();
+        int clk  = (int)clockSlider.getValue();
+
+        long currentTotalClocks = ((meas - 1) * 384) + ((beat - 1) * 96) + (clk - 1);
+        long prevTotalClocks = currentTotalClocks - clocksToRemove;
+
+        if (prevTotalClocks < 0) prevTotalClocks = 0;
+
+        int nextMeas = (int)(prevTotalClocks / 384) + 1;
+        int remain   = (int)(prevTotalClocks % 384);
+        int nextBeat = (remain / 96) + 1;
+        int nextClk  = (remain % 96) + 1;
+
+        measureSlider.setValue (nextMeas);
+        beatSlider.setValue (nextBeat);
+        clockSlider.setValue (nextClk);
+    }
+
+    void setStepAndGate (int clockValue)
+    {
+        stepTimeSlider.setValue (clockValue);
+        gateTimeSlider.setValue (clockValue);
     }
 
     // 画面の大枠
@@ -447,35 +394,25 @@ private:
     juce::TextButton tieButton;
     juce::TextButton deleteButton;
 
-    // --- 【新機能】音符プリセットボタンの変数群 ---
-    juce::TextButton btnNote4;  // 4分音符 (96)
-    juce::TextButton btnNote8;  // 8分音符 (48)
-    juce::TextButton btnNote16; // 16分音符 (24)
-    juce::TextButton btnNote32; // 32分音符 (12)
+    // 音符プリセットボタン
+    juce::TextButton btnNote4;    juce::TextButton btnNote8;
+    juce::TextButton btnNote16;   juce::TextButton btnNote32;
+    juce::TextButton btnNote8T;   juce::TextButton btnNote16T;
+    juce::TextButton btnNote8D;   juce::TextButton btnNote16D;
 
-    // 入力アイテム群（スライダー・ラベル）
-    juce::Slider measureSlider;
-    juce::Slider beatSlider;
-    juce::Slider clockSlider;
-    juce::Slider noteSlider;
-    juce::Slider velocitySlider;
-    juce::Slider gateTimeSlider;
+    // MC-50風の入力アイテム群
+    juce::Slider measureSlider;   juce::Slider beatSlider;      juce::Slider clockSlider;
+    juce::Slider noteSlider;      juce::Slider velocitySlider;  juce::Slider gateTimeSlider;
     juce::Slider stepTimeSlider;
 
-    juce::Label measureLabel;
-    juce::Label beatLabel;
-    juce::Label clockLabel;
-    juce::Label noteLabel;
-    juce::Label velocityLabel;
-    juce::Label gateTimeLabel;
+    // 各項目の名前（ラベル）
+    juce::Label measureLabel;    juce::Label beatLabel;       juce::Label clockLabel;
+    juce::Label noteLabel;       juce::Label velocityLabel;   juce::Label gateTimeLabel;
     juce::Label stepTimeLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };
 
-// ==============================================================================
-// 2. JUCE アプリケーションクラス (Application)
-// ==============================================================================
 class Application : public juce::JUCEApplication {
 public:
     const juce::String getApplicationName() override       { return JUCE_APPLICATION_NAME; }
@@ -488,9 +425,6 @@ public:
 private:
     class MainWindow : public juce::DocumentWindow {
     public:
-        // ==============================================================================
-        // 3. メインウィンドウクラス (MainWindow)
-        // ==============================================================================
         MainWindow(const juce::String& name)
             : DocumentWindow(name, juce::Desktop::getInstance().getDefaultLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId), allButtons) {
             setContentOwned(new MainComponent(), true);
@@ -502,5 +436,4 @@ private:
     std::unique_ptr<MainWindow> window;
 };
 
-// アプリケーションの起動マクロ
 START_JUCE_APPLICATION(Application)
