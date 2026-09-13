@@ -13,7 +13,13 @@ juce_add_gui_app(JuceSteps
 )
 
 target_sources(JuceSteps PRIVATE
-    Main.cpp
+    Source/Main.cpp
+    Source/gui.cpp
+    Source/gui.h
+)
+
+target_include_directories(JuceSteps PRIVATE
+    Source
 )
 
 target_link_libraries(JuceSteps PRIVATE
