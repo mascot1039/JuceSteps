@@ -14,12 +14,16 @@ juce_add_gui_app(JuceSteps
 
 target_sources(JuceSteps PRIVATE
     Source/Main.cpp
-    Source/gui.cpp
-    Source/gui.h
+    Source/MC500_InputComponent.cpp
+    Source/MC500_InputComponent.h
+    Source/InfiniteRotarySliderComponent.h
+    Source/InfiniteRotarySliderComponent.cpp
+    Source/LcdComponent.cpp
+    Source/LcdComponent.h
 )
 
 target_include_directories(JuceSteps PRIVATE
-    Source
+    Source/
 )
 
 target_link_libraries(JuceSteps PRIVATE
