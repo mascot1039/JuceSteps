@@ -11,6 +11,8 @@ class DialLookAndFeel : public juce::LookAndFeel_V4
 public:
     DialLookAndFeel() {}
 
+    void setVisualAngle (float newAngle) { visualAngle = newAngle; }
+
     void drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
                            float sliderPosProportional, float rotaryStartAngle, float rotaryEndAngle,
                            juce::Slider& slider) override
@@ -38,7 +40,8 @@ public:
         g.drawEllipse (rx + 1.0f, ry + 1.0f, rw - 2.0f, rw - 2.0f, 1.0f);
 
         // 3. 回転角度の計算
-        auto currentAngle = rotaryStartAngle + (sliderPosProportional * (rotaryEndAngle - rotaryStartAngle));
+        //auto currentAngle = rotaryStartAngle + (sliderPosProportional * (rotaryEndAngle - rotaryStartAngle));
+        auto currentAngle = visualAngle;
 
         // 4. インジケーター（指標線）の描画
         // つまみがグレーになったため、指標線は「黒（または濃いグレー）」にすると見やすくなります
@@ -53,6 +56,9 @@ public:
         //g.setColour (juce::Colour (0xFF2A2A2A)); // ★ 指標線を濃いグレーに変更して視認性を確保
         g.fillPath (p);
     }
+
+private:
+    float visualAngle = 0.0f; // ▽▽▽ 追記：見た目の回転角度を保持する変数 ▽▽▽
 };
 
 // ==============================================================================
@@ -66,12 +72,25 @@ public:
 
     void paint (juce::Graphics&) override;
     void resized() override;
+    bool keyPressed (const juce::KeyPress& key) override;
+    void mouseDown (const juce::MouseEvent& event) override;
 
 private:
+    // ダイヤルが現在どのパラメーターを操作しているかを表す状態定義
+    enum class DialTargetMode
+    {
+        StepTime,
+        GateTime,
+        Velocity
+    };
+
+    DialTargetMode currentDialMode = DialTargetMode::StepTime; // 初期状態はStepTime
+
     // --- UI素材の定義 ---
     LcdComponent lcdArea;
 
     InfiniteRotarySliderComponent alphaDialSlider;
+    float dialVisualAngle = 0.0f;
     juce::TextButton tieButton;
     juce::TextButton restButton;
 
@@ -80,7 +99,6 @@ private:
 
     // 右のテンキー配列
     juce::OwnedArray<juce::TextButton> numButtons;
-    juce::TextButton zeroButton;
     juce::TextButton enterButton;
 
     // ★カスタムLook&Feelのインスタンスを追加

@@ -11,15 +11,15 @@ public:
         : DocumentWindow (name,
                           juce::Desktop::getInstance().getDefaultLookAndFeel()
                                                       .findColour (juce::ResizableWindow::backgroundColourId),
-                          DocumentWindow::allButtons)
+                          DocumentWindow::closeButton | DocumentWindow::minimiseButton)
     {
-        setUsingNativeTitleBar (true);
+        setUsingNativeTitleBar (false);
 
         // 1. 先にメインとなるコンポーネントのインスタンスを生成
         auto* mainComponent = new MC500_InputComponent();
 
         // 2. ウィンドウにセットする前に、コンポーネント自体の初期サイズを必ず指定する（★最重要修正ポイント）
-        mainComponent->setSize (800, 320);
+        mainComponent->setSize (590, 320);
 
         // 3. ウィンドウの所有権をセット（第2引数を true にするとウィンドウが自動的にアスペクト比などを維持・追従します）
         setContentOwned (mainComponent, true);
@@ -27,9 +27,7 @@ public:
         #if JUCE_IOS || JUCE_ANDROID
          setFullScreen (true);
         #else
-         setResizable (true, true);
-         // 4. ウィンドウの伸縮制限を設定
-         setResizeLimits (600, 240, 1600, 800);
+         setResizable (false, false);
         #endif
 
         setVisible (true);

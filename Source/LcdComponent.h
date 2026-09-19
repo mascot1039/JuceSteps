@@ -9,13 +9,25 @@ public:
 
     void paint(juce::Graphics& g) override;
 
+    enum class EditMode
+    {
+        None,
+        StepTime,
+        GateTime,
+        Velocity
+    };
+    void setEditMode (EditMode mode);
+
     // 外部（テンキーなど）から値を書き換えるための関数群
     void setTimePosition(int measure, int beat, int clock);
     void setNoteInfo(const juce::String& name, int number);
     void setVelocity(int vel);
     void setGateTime(int gate);
     void setStepTime(int step);
-
+    // 現在のパラメータ値を取得するためのゲッター関数群
+    int getStepTime() const { return mStepTime; }
+    int getGateTime() const { return mGateTime; }
+    int getVelocity() const { return mVelocity; }
 private:
     // 液晶に表示するデータ（状態）
     int mMeasure = 1;
@@ -26,6 +38,7 @@ private:
     int mVelocity = 64;
     int mGateTime = 96;
     int mStepTime = 96;
+    EditMode mCurrentMode = EditMode::StepTime; // 初期状態はStepTime選択状態
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LcdComponent)
 };
