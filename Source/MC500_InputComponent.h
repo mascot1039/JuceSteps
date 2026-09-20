@@ -17,6 +17,8 @@ public:
                            float sliderPosProportional, float rotaryStartAngle, float rotaryEndAngle,
                            juce::Slider& slider) override
     {
+        juce::ignoreUnused(sliderPosProportional, rotaryStartAngle, rotaryEndAngle);
+
         // 描画エリアの計算（正方形の中心をとる）
         auto radius = juce::jmin (width / 2, height / 2) - 4.0f;
         auto centreX = x + width * 0.5f;
@@ -62,9 +64,74 @@ private:
 };
 
 // ==============================================================================
+// ★左右の矢印ボタン専用のカスタムLook&Feelクラス
+// ==============================================================================
+class ArrowButtonLookAndFeel : public juce::LookAndFeel_V4
+{
+public:
+    ArrowButtonLookAndFeel (bool isLeftArrow) : isLeft (isLeftArrow) {}
+
+    void drawButtonText (juce::Graphics& g, juce::TextButton& button,
+                         bool isMouseOverButton, bool isButtonDown) override
+    {
+        // テキストは描画せず、代わりに三角形を描画するため、この関数は空にします。
+        juce::ignoreUnused(g, button, isMouseOverButton, isButtonDown);
+    }
+
+    void drawButtonBackground (juce::Graphics& g, juce::Button& button,
+                               const juce::Colour& backgroundColour,
+                               bool isMouseOverButton, bool isButtonDown) override
+    {
+        // 1. 通常のボタン背景をベースクラスに描画してもらう（枠線や丸みなどを維持）
+        juce::LookAndFeel_V4::drawButtonBackground (g, button, backgroundColour, isMouseOverButton, isButtonDown);
+
+        // 2. 三角形（矢印グラフィック）の描画計算
+        auto width = (float) button.getWidth();
+        auto height = (float) button.getHeight();
+
+        // ボタンの中心を基準に、綺麗な正三角形のサイズを決定
+        auto arrowSize = juce::jmin (width, height) * 0.35f;
+        auto centerX = width * 0.5f;
+        auto centerY = height * 0.5f;
+
+        juce::Path p;
+
+        if (isLeft)
+        {
+            // 左向きの三角形 (◀)
+            p.addTriangle (centerX - arrowSize * 0.5f, centerY,                  // 先端（左）
+                           centerX + arrowSize * 0.5f, centerY - arrowSize * 0.4f, // 右上
+                           centerX + arrowSize * 0.5f, centerY + arrowSize * 0.4f); // 右下
+        }
+        else
+        {
+            // 右向きの三角形 (▶)
+            p.addTriangle (centerX + arrowSize * 0.5f, centerY,                  // 先端（右）
+                           centerX - arrowSize * 0.5f, centerY - arrowSize * 0.4f, // 左上
+                           centerX - arrowSize * 0.5f, centerY + arrowSize * 0.4f); // 左下
+        }
+
+        // 3. 三角形の色を決定（文字色と同じ設定を流用するか、固定の色にする）
+        // ここではテキスト用カラー（デフォルトなら白や薄いグレー）を取得して塗ります
+        auto arrowColor = button.findColour (juce::TextButton::textColourOffId);
+
+        // マウスホバーやクリック時に少し色を変化させる（お好みで調整してください）
+        if (isButtonDown)      g.setColour (arrowColor.withAlpha (0.6f));
+        else if (isMouseOverButton) g.setColour (arrowColor.brighter (0.1f));
+        else                   g.setColour (arrowColor);
+
+        g.fillPath (p);
+    }
+
+private:
+    bool isLeft;
+};
+
+// ==============================================================================
 // メインコンポーネントクラス
 // ==============================================================================
-class MC500_InputComponent  : public juce::Component
+class MC500_InputComponent  : public juce::Component,
+                              private juce::Timer
 {
 public:
     MC500_InputComponent();
@@ -74,14 +141,22 @@ public:
     void resized() override;
     bool keyPressed (const juce::KeyPress& key) override;
     void mouseDown (const juce::MouseEvent& event) override;
+    void visibilityChanged() override;
 
 private:
+    void timerCallback() override;
+
     // ダイヤルが現在どのパラメーターを操作しているかを表す状態定義
     enum class DialTargetMode
     {
+        None,
+        Measure,
+        Beat,
+        Clock,
         StepTime,
-        GateTime,
-        Velocity
+        Note,
+        Velocity,
+        GateTime
     };
 
     DialTargetMode currentDialMode = DialTargetMode::StepTime; // 初期状態はStepTime
@@ -91,8 +166,8 @@ private:
 
     InfiniteRotarySliderComponent alphaDialSlider;
     float dialVisualAngle = 0.0f;
-    juce::TextButton tieButton;
-    juce::TextButton restButton;
+    juce::TextButton leftButton;
+    juce::TextButton rightButton;
 
     // 中央のボタン配列 (OwnedArrayはスマートポインタの動的配列)
     juce::OwnedArray<juce::TextButton> centerButtons;
@@ -103,6 +178,8 @@ private:
 
     // ★カスタムLook&Feelのインスタンスを追加
     DialLookAndFeel dialLookAndFeel;
+    ArrowButtonLookAndFeel leftArrowLookAndFeel { true };
+    ArrowButtonLookAndFeel rightArrowLookAndFeel { false };
 
     void setupButton (juce::TextButton& btn, const juce::String& text);
 

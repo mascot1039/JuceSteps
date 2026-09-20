@@ -14,8 +14,10 @@ MC500_InputComponent::MC500_InputComponent()
     addAndMakeVisible (alphaDialSlider);
 
     // 2. 左ボタン設定
-    setupButton (tieButton, "TIE");
-    setupButton (restButton, "REST");
+    leftButton.setLookAndFeel (&leftArrowLookAndFeel);
+    rightButton.setLookAndFeel (&rightArrowLookAndFeel);
+    setupButton (leftButton, juce::String::fromUTF8 ("←"));
+    setupButton (rightButton, juce::String::fromUTF8 ("→"));
 
     // 3. 中央ボタン設定（2列4行分 = 8個）
     std::vector<juce::String> centerLabels {
@@ -55,7 +57,7 @@ MC500_InputComponent::MC500_InputComponent()
     alphaDialSlider.slider.onValueChange = [this]()
     {
         double rawDelta = alphaDialSlider.slider.getValue();
-        if (rawDelta == 0.0) return;
+        if (juce::approximatelyEqual (rawDelta, 0.0)) return;
 
         // 🌟【重要】マウスホイールの大きな移動量を、1ステップ（1.0 または -1.0）に丸める
         // これにより、ホイールを大きく回しても、キーボードと同じ滑らかな挙動に統一されます
@@ -81,16 +83,36 @@ MC500_InputComponent::MC500_InputComponent()
         // 液晶の数値を更新
         switch (currentDialMode)
         {
+            case DialTargetMode::None:
+                break;
+            case DialTargetMode::Measure:
+            {
+                int nextStep = lcdArea.getMeasure() + intDelta;
+                lcdArea.setMeasure (juce::jmax (0, nextStep));
+                break;
+            }
+            case DialTargetMode::Beat:
+            {
+                int nextStep = lcdArea.getBeat() + intDelta;
+                lcdArea.setBeat (juce::jmax (0, nextStep));
+                break;
+            }
+            case DialTargetMode::Clock:
+            {
+                int nextStep = lcdArea.getClock() + intDelta;
+                lcdArea.setClock (juce::jmax (0, nextStep));
+                break;
+            }
             case DialTargetMode::StepTime:
             {
                 int nextStep = lcdArea.getStepTime() + intDelta;
                 lcdArea.setStepTime (juce::jmax (0, nextStep));
                 break;
             }
-            case DialTargetMode::GateTime:
+            case DialTargetMode::Note:
             {
-                int nextGate = lcdArea.getGateTime() + intDelta;
-                lcdArea.setGateTime (juce::jmax (0, nextGate));
+                int nextStep = lcdArea.getNoteNumber() + intDelta;
+                lcdArea.setNoteNumber (juce::jmax (0, nextStep));
                 break;
             }
             case DialTargetMode::Velocity:
@@ -99,10 +121,49 @@ MC500_InputComponent::MC500_InputComponent()
                 lcdArea.setVelocity (juce::jlimit (0, 127, nextVel));
                 break;
             }
+            case DialTargetMode::GateTime:
+            {
+                int nextGate = lcdArea.getGateTime() + intDelta;
+                lcdArea.setGateTime (juce::jmax (0, nextGate));
+                break;
+            }
+            default:
+                break;
         }
 
         // スライダーを中央に戻す
         alphaDialSlider.slider.setValue (0.0, juce::dontSendNotification);
+    };
+
+    // ▽▽▽ 追記：左矢印ボタンの処理 ▽▽▽
+    leftButton.onClick = [this]()
+    {
+        // 現在のモードを取得
+        auto mode = lcdArea.getEditMode(); // ※LcdComponentにゲッターが無い場合は後述の修正参照
+
+        // モードを左（逆順）に切り替える
+        int modeInt = static_cast<int>(mode);
+        modeInt--;
+        if (modeInt < static_cast<int>(LcdComponent::EditMode::Measure))
+            modeInt = static_cast<int>(LcdComponent::EditMode::GateTime); // 最後の項目へループ
+
+        lcdArea.setEditMode(static_cast<LcdComponent::EditMode>(modeInt));
+        currentDialMode = static_cast<DialTargetMode>(modeInt);
+    };
+
+    // ▽▽▽ 追記：右矢印ボタンの処理 ▽▽▽
+    rightButton.onClick = [this]()
+    {
+        auto mode = lcdArea.getEditMode();
+
+        // モードを右（正順）に切り替える
+        int modeInt = static_cast<int>(mode);
+        modeInt++;
+        if (modeInt > static_cast<int>(LcdComponent::EditMode::GateTime))
+            modeInt = static_cast<int>(LcdComponent::EditMode::Measure); // 最初の項目へループ
+
+        lcdArea.setEditMode(static_cast<LcdComponent::EditMode>(modeInt));
+        currentDialMode = static_cast<DialTargetMode>(modeInt);
     };
 
     // ==============================================================================
@@ -173,6 +234,8 @@ MC500_InputComponent::~MC500_InputComponent()
 {
     // ★ ヌルポインタをセットして LookAndFeel の参照を安全に外す（JUCEの決まり文句）
     alphaDialSlider.setLookAndFeel (nullptr);
+    leftButton.setLookAndFeel (nullptr);
+    rightButton.setLookAndFeel (nullptr);
 }
 
 void MC500_InputComponent::paint (juce::Graphics& g)
@@ -223,11 +286,11 @@ void MC500_InputComponent::resized()
 
     leftArea.removeFromTop (8); // 縦の隙間
 
-    // TIE と REST ボタンを横並びに分割
-    auto tieArea = leftArea.removeFromLeft (leftArea.getWidth() / 2).reduced(2, 0);
-    auto restArea = leftArea.reduced(2, 0);
-    tieButton.setBounds (tieArea);
-    restButton.setBounds (restArea);
+    // ← と → ボタンを横並びに分割
+    auto leftButtonArea = leftArea.removeFromLeft (leftArea.getWidth() / 2).reduced(2, 0);
+    auto rightButtonArea = leftArea.reduced(2, 0);
+    leftButton.setBounds (leftButtonArea);
+    rightButton.setBounds (rightButtonArea);
 
     // -------------------------------------------------------------
     // 2. 【中央セクション】の配置 (2列4行 Grid)
@@ -278,6 +341,7 @@ void MC500_InputComponent::setupButton (juce::TextButton& btn, const juce::Strin
 // 画面をクリックした時に、確実にキーボード入力をこの画面に引き戻す対策
 void MC500_InputComponent::mouseDown (const juce::MouseEvent& event)
 {
+    juce::ignoreUnused(event);
     grabKeyboardFocus();
 }
 
@@ -289,7 +353,7 @@ bool MC500_InputComponent::keyPressed (const juce::KeyPress& key)
     // ==============================================================================
 
     // 【右回転】
-    if (key.getKeyCode() == juce::KeyPress::rightKey || key.getKeyCode() == ']' || key.getKeyCode() == '}')
+    if (key.getKeyCode() == juce::KeyPress::upKey || key.getKeyCode() == ']' || key.getKeyCode() == '}')
     {
         double step = juce::ModifierKeys::getCurrentModifiers().isShiftDown() ? 10.0 : 1.0;
 
@@ -299,12 +363,26 @@ bool MC500_InputComponent::keyPressed (const juce::KeyPress& key)
     }
 
     // 【左回転】
-    if (key.getKeyCode() == juce::KeyPress::leftKey || key.getKeyCode() == '[' || key.getKeyCode() == '{')
+    if (key.getKeyCode() == juce::KeyPress::downKey || key.getKeyCode() == '[' || key.getKeyCode() == '{')
     {
         double step = juce::ModifierKeys::getCurrentModifiers().isShiftDown() ? 10.0 : 1.0;
 
         // 現在の値（通常は0.0）からステップを減算してイベントを発火させる
         alphaDialSlider.slider.setValue (alphaDialSlider.slider.getValue() - step, juce::sendNotificationSync);
+        return true;
+    }
+
+    // ◀ボタン
+    if (key.getKeyCode() == juce::KeyPress::leftKey)
+    {
+        leftButton.triggerClick();
+        return true;
+    }
+
+    // ▶ボタン
+    if (key.getKeyCode() == juce::KeyPress::rightKey)
+    {
+        rightButton.triggerClick();
         return true;
     }
 
@@ -336,27 +414,10 @@ bool MC500_InputComponent::keyPressed (const juce::KeyPress& key)
         }
     }
 
-    // ==============================================================================
-    // 3. 特殊キー (ENTER, TIE, REST) の操作
-    // ==============================================================================
     // ENTERキー (キーボードの Enter / Return キー、またはテンキーの Enter)
-    if (key == juce::KeyPress::returnKey)
+    if (key.getKeyCode() == juce::KeyPress::returnKey)
     {
         enterButton.triggerClick();
-        return true;
-    }
-
-    // TIEボタン (キーボードの 'T' キー)
-    if (key.isKeyCode ('t') || key.isKeyCode ('T'))
-    {
-        tieButton.triggerClick();
-        return true;
-    }
-
-    // RESTボタン (キーボードの 'R' キー)
-    if (key.isKeyCode ('r') || key.isKeyCode ('R'))
-    {
-        restButton.triggerClick();
         return true;
     }
 
@@ -382,4 +443,28 @@ bool MC500_InputComponent::keyPressed (const juce::KeyPress& key)
     if (key == juce::KeyPress::F4Key) { if (centerButtons.size() > 5 && centerButtons[5] != nullptr) { centerButtons[5]->triggerClick(); return true; } }
 
     return false; // 割り当てていないその他のキーはスルー
+}
+
+void MC500_InputComponent::visibilityChanged()
+{
+    if (isVisible())
+    {
+        // 画面に表示されたら、100ミリ秒後に1回だけ実行するタイマーを起動
+        // これにより、JUCEの画面接続処理がすべて終わるのを安全に待ちます
+        startTimer (100);
+    }
+    else
+    {
+        // 非表示になったらタイマーを止める（安全のため）
+        stopTimer();
+    }
+}
+
+void MC500_InputComponent::timerCallback()
+{
+    // 1回だけ実行したいので、即座にタイマーを停止
+    stopTimer();
+
+    // 全ての構築が終わったこのタイミングであれば、絶対にアサーションを出さずにフォーカスを取れます
+    grabKeyboardFocus();
 }

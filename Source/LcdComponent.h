@@ -1,4 +1,5 @@
 #pragma once
+#include "juce_core/juce_core.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 
 // MC-50風 液晶画面コンポーネント
@@ -12,22 +13,38 @@ public:
     enum class EditMode
     {
         None,
+        Measure,
+        Beat,
+        Clock,
         StepTime,
-        GateTime,
-        Velocity
+        Note,
+        Velocity,
+        GateTime
     };
     void setEditMode (EditMode mode);
 
     // 外部（テンキーなど）から値を書き換えるための関数群
     void setTimePosition(int measure, int beat, int clock);
     void setNoteInfo(const juce::String& name, int number);
+    void setMeasure(int measure);
+    void setBeat(int beat);
+    void setClock(int clock);
+    void setStepTime(int step);
+    void setNoteName(juce::String& name);
+    void setNoteNumber(int number);
     void setVelocity(int vel);
     void setGateTime(int gate);
-    void setStepTime(int step);
     // 現在のパラメータ値を取得するためのゲッター関数群
+    int getMeasure() const { return mMeasure; }
+    int getBeat() const { return mBeat; }
+    int getClock() const { return mClock; }
     int getStepTime() const { return mStepTime; }
-    int getGateTime() const { return mGateTime; }
+    juce::String getNoteName() const { return mNoteName; }
+    int getNoteNumber() const { return mNoteNumber; }
     int getVelocity() const { return mVelocity; }
+    int getGateTime() const { return mGateTime; }
+    EditMode getEditMode() const { return mCurrentMode; }
+
 private:
     // 液晶に表示するデータ（状態）
     int mMeasure = 1;

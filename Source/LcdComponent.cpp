@@ -23,14 +23,14 @@ void LcdComponent::paint(juce::Graphics& g) {
     g.setFont(font);
 
     // 4. 文字列の組み立て
-    // フォーマット：「000-00-000  C 3(060)  064  0096  0096」
+    // フォーマット：「000-00-000 S:096 N:C 3(060) V:064 G:0096」
     juce::String text = juce::String::formatted(
-        "%03d-%02d-%03d  %s(%03d)  %03d  %04d  %04d",
+        "%03d-%02d-%03d S:%03d N:%s(%03d) V:%03d G:%04d",
         mMeasure, mBeat, mClock,
+        mStepTime,
         mNoteName.toRawUTF8(), mNoteNumber,
         mVelocity,
-        mGateTime,
-        mStepTime
+        mGateTime
     );
 
     // 🌟 描画位置の基準を明確にする
@@ -44,7 +44,7 @@ void LcdComponent::paint(juce::Graphics& g) {
     float fontHeight = font.getHeight();
 
     // 5. 選択項目のハイライト（反転四角形）の座標計算
-    float highlightX = startX - 24.0f;
+    float highlightX = startX;
     float highlightW = 0.0f;
     float highlightY = startY - 2.0f; // 文字の高さに合わせる微調整
     float highlightH = fontHeight + 4.0f;
@@ -53,16 +53,34 @@ void LcdComponent::paint(juce::Graphics& g) {
     {
         switch (mCurrentMode)
         {
+            case EditMode::None:
+                break;
+            case EditMode::Measure:
+                highlightX += charWidth * 0.0f; // Measure「000」の開始文字位置
+                highlightW = charWidth * 3.0f;  // 3文字分
+                break;
+            case EditMode::Beat:
+                highlightX += charWidth * 4.0f; // Beat「00」の開始文字位置
+                highlightW = charWidth * 2.0f;  // 2文字分
+                break;
+            case EditMode::Clock:
+                highlightX += charWidth * 7.0f; // Clock「000」の開始文字位置
+                highlightW = charWidth * 3.0f;  // 3文字分
+                break;
+            case EditMode::StepTime:
+                highlightX += charWidth * 13.0f; // StepTime「0096」の開始文字位置
+                highlightW = charWidth * 3.0f;   // 3文字分
+                break;
+            case EditMode::Note:
+                highlightX += charWidth * 19.0f; // Note「C 3(060)」の開始文字位置
+                highlightW = charWidth * 8.0f;   // 8文字分
+                break;
             case EditMode::Velocity:
-                highlightX += charWidth * 24.0f; // Velocity「064」の開始文字位置
+                highlightX += charWidth * 30.0f; // Velocity「064」の開始文字位置
                 highlightW = charWidth * 3.0f;   // 3文字分
                 break;
             case EditMode::GateTime:
-                highlightX += charWidth * 29.0f; // GateTime「0096」の開始文字位置
-                highlightW = charWidth * 4.0f;   // 4文字分
-                break;
-            case EditMode::StepTime:
-                highlightX += charWidth * 35.0f; // StepTime「0096」の開始文字位置
+                highlightX += charWidth * 36.0f; // GateTime「0096」の開始文字位置
                 highlightW = charWidth * 4.0f;   // 4文字分
                 break;
             default:
@@ -106,6 +124,35 @@ void LcdComponent::setNoteInfo(const juce::String& name, int number) {
     mNoteName = name; mNoteNumber = number;
     repaint();
 }
+void LcdComponent::setMeasure(int measure)
+{
+    mMeasure = measure;
+    repaint();
+}
+void LcdComponent::setBeat(int beat)
+{
+    mBeat = beat;
+    repaint();
+}
+void LcdComponent::setClock(int clock)
+{
+    mClock = clock;
+    repaint();
+}
+void LcdComponent::setStepTime(int step) {
+    mStepTime = step;
+    repaint();
+}
+void LcdComponent::setNoteName(juce::String& name)
+{
+    mNoteName = name;
+    repaint();
+}
+void LcdComponent::setNoteNumber(int number)
+{
+    mNoteNumber = number;
+    repaint();
+}
 void LcdComponent::setVelocity(int vel) {
     mVelocity = vel;
     repaint();
@@ -114,11 +161,6 @@ void LcdComponent::setGateTime(int gate) {
     mGateTime = gate;
     repaint();
 }
-void LcdComponent::setStepTime(int step) {
-    mStepTime = step;
-    repaint();
-}
-
 void LcdComponent::setEditMode (EditMode mode) {
     mCurrentMode = mode;
     repaint(); // モードが変わったら液晶を再描画して反転表示を更新
