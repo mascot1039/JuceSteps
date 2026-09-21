@@ -56,18 +56,6 @@ void LcdComponent::paint(juce::Graphics& g) {
         {
             case EditMode::None:
                 break;
-            case EditMode::Measure:
-                highlightX += charWidth * 0.0f; // Measure「000」の開始文字位置
-                highlightW = charWidth * 3.0f;  // 3文字分
-                break;
-            case EditMode::Beat:
-                highlightX += charWidth * 4.0f; // Beat「00」の開始文字位置
-                highlightW = charWidth * 2.0f;  // 2文字分
-                break;
-            case EditMode::Clock:
-                highlightX += charWidth * 7.0f; // Clock「000」の開始文字位置
-                highlightW = charWidth * 3.0f;  // 3文字分
-                break;
             case EditMode::StepTime:
                 highlightX += charWidth * 13.0f; // StepTime「0096」の開始文字位置
                 highlightW = charWidth * 3.0f;   // 3文字分
@@ -144,7 +132,7 @@ void LcdComponent::setStepTime(int step) {
     mStepTime = step;
     repaint();
 }
-void LcdComponent::setNoteName(juce::String& name)
+void LcdComponent::setNoteName(const juce::String& name)
 {
     mNoteName = name;
     repaint();
@@ -153,7 +141,6 @@ void LcdComponent::setNoteNumber(int number)
 {
     juce::String name = getMc500StyleNoteName(number);
     setNoteInfo(name, number);
-    repaint();
 }
 void LcdComponent::setVelocity(int vel) {
     mVelocity = vel;

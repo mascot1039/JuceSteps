@@ -14,9 +14,6 @@ public:
     enum class EditMode
     {
         None,
-        Measure,
-        Beat,
-        Clock,
         StepTime,
         Note,
         Velocity,
@@ -31,7 +28,7 @@ public:
     void setBeat(int beat);
     void setClock(int clock);
     void setStepTime(int step);
-    void setNoteName(juce::String& name);
+    void setNoteName(const juce::String& name);
     void setNoteNumber(int number);
     void setVelocity(int vel);
     void setGateTime(int gate);

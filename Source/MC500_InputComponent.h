@@ -1,4 +1,6 @@
 #pragma once
+#include <array>
+#include <cstddef>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "InfiniteRotarySliderComponent.h"
 #include "LcdComponent.h"
@@ -150,9 +152,6 @@ private:
     enum class DialTargetMode
     {
         None,
-        Measure,
-        Beat,
-        Clock,
         StepTime,
         Note,
         Velocity,
@@ -160,6 +159,14 @@ private:
     };
 
     DialTargetMode currentDialMode = DialTargetMode::StepTime; // 初期状態はStepTime
+
+    static constexpr std::array<int, 10> stepTimeValues
+    {
+        192, 96, 64, 48, 32,
+         24, 16, 12,  8,  6
+    };
+
+    std::size_t stepTimeIndex = 1;   // 初期値 96
 
     // --- UI素材の定義 ---
     LcdComponent lcdArea;

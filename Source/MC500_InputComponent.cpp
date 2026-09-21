@@ -85,28 +85,19 @@ MC500_InputComponent::MC500_InputComponent()
         {
             case DialTargetMode::None:
                 break;
-            case DialTargetMode::Measure:
-            {
-                int numNew = lcdArea.getMeasure() + intDelta;
-                lcdArea.setMeasure (juce::jlimit (0, 999, numNew));
-                break;
-            }
-            case DialTargetMode::Beat:
-            {
-                int numNew = lcdArea.getBeat() + intDelta;
-                lcdArea.setBeat (juce::jlimit (0, 9, numNew));
-                break;
-            }
-            case DialTargetMode::Clock:
-            {
-                int numNew = lcdArea.getClock() + intDelta;
-                lcdArea.setClock (juce::jlimit (0, 999, numNew));
-                break;
-            }
             case DialTargetMode::StepTime:
             {
-                int numNew = lcdArea.getStepTime() + intDelta;
-                lcdArea.setStepTime (juce::jlimit (0, 999, numNew));
+                if (intDelta > 0)
+                {
+                    if (stepTimeIndex + 1 < stepTimeValues.size())
+                        ++stepTimeIndex;
+                }
+                else if (intDelta < 0)
+                {
+                    if (stepTimeIndex > 0)
+                        --stepTimeIndex;
+                }
+                lcdArea.setStepTime (stepTimeValues[stepTimeIndex]);
                 break;
             }
             case DialTargetMode::Note:
@@ -144,7 +135,7 @@ MC500_InputComponent::MC500_InputComponent()
         // モードを左（逆順）に切り替える
         int modeInt = static_cast<int>(mode);
         modeInt--;
-        if (modeInt < static_cast<int>(LcdComponent::EditMode::Measure))
+        if (modeInt < static_cast<int>(LcdComponent::EditMode::StepTime))
             modeInt = static_cast<int>(LcdComponent::EditMode::GateTime); // 最後の項目へループ
 
         lcdArea.setEditMode(static_cast<LcdComponent::EditMode>(modeInt));
@@ -160,7 +151,7 @@ MC500_InputComponent::MC500_InputComponent()
         int modeInt = static_cast<int>(mode);
         modeInt++;
         if (modeInt > static_cast<int>(LcdComponent::EditMode::GateTime))
-            modeInt = static_cast<int>(LcdComponent::EditMode::Measure); // 最初の項目へループ
+            modeInt = static_cast<int>(LcdComponent::EditMode::StepTime); // 最初の項目へループ
 
         lcdArea.setEditMode(static_cast<LcdComponent::EditMode>(modeInt));
         currentDialMode = static_cast<DialTargetMode>(modeInt);
@@ -184,28 +175,8 @@ MC500_InputComponent::MC500_InputComponent()
                 {
                     case DialTargetMode::None:
                         break;
-                    case DialTargetMode::Measure:
-                    {
-                        int numNew = (lcdArea.getMeasure() * 10 + numValue) % 1000;
-                        lcdArea.setMeasure (juce::jlimit (0, 999, numNew));
-                        break;
-                    }
-                    case DialTargetMode::Beat:
-                    {
-                        int numNew = (lcdArea.getBeat() * 10 + numValue) % 10;
-                        lcdArea.setBeat (juce::jlimit (0, 9, numNew));
-                        break;
-                    }
-                    case DialTargetMode::Clock:
-                    {
-                        int numNew = (lcdArea.getClock() * 10 + numValue) % 1000;
-                        lcdArea.setClock (juce::jlimit (0, 999, numNew));
-                        break;
-                    }
                     case DialTargetMode::StepTime:
                     {
-                        int numNew = (lcdArea.getStepTime() * 10 + numValue) % 1000;
-                        lcdArea.setStepTime (juce::jlimit (0, 999, numNew));
                         break;
                     }
                     case DialTargetMode::Note:
@@ -231,46 +202,6 @@ MC500_InputComponent::MC500_InputComponent()
                 }
             };
         }
-    }
-
-    // ==============================================================================
-    // ★ 中央のボタン群に「ダイヤル対象切り替え」の役割を割り当てる
-    // ==============================================================================
-    // ※ centerButtonsの生成順（インデックス）に合わせて適宜割り当てを調整してください。
-
-    // 【1番目のボタン】 押すとダイヤルが「Step Time」操作モードになる
-    if (centerButtons.size() > 0 && centerButtons[0] != nullptr)
-    {
-        centerButtons[0]->onClick = [this]()
-        {
-            currentDialMode = DialTargetMode::StepTime;
-            // ダイヤルの現在の物理的な値を、液晶の現在のStepTimeの値（または初期値など）に同期させる
-            // ※ここでは仮に初期設定として標準的な4分音符(96)などの値をセットしています
-            lcdArea.setEditMode (LcdComponent::EditMode::StepTime); // 🌟液晶に通知
-            alphaDialSlider.slider.setValue (96, juce::dontSendNotification);
-        };
-    }
-
-    // 【2番目のボタン】 押すとダイヤルが「Gate Time」操作モードになる
-    if (centerButtons.size() > 1 && centerButtons[1] != nullptr)
-    {
-        centerButtons[1]->onClick = [this]()
-        {
-            currentDialMode = DialTargetMode::GateTime;
-            lcdArea.setEditMode (LcdComponent::EditMode::GateTime); // 🌟液晶に通知
-            alphaDialSlider.slider.setValue (96, juce::dontSendNotification);
-        };
-    }
-
-    // 【3番目のボタン】 押すとダイヤルが「Velocity」操作モードになる
-    if (centerButtons.size() > 2 && centerButtons[2] != nullptr)
-    {
-        centerButtons[2]->onClick = [this]()
-        {
-            currentDialMode = DialTargetMode::Velocity;
-            lcdArea.setEditMode (LcdComponent::EditMode::Velocity); // 🌟液晶に通知
-            alphaDialSlider.slider.setValue (64, juce::dontSendNotification); // Velocity初期値
-        };
     }
 
     setWantsKeyboardFocus(true);
