@@ -1,6 +1,8 @@
-# JuceMinimum
+# JuceSteps
 
-CMake を使用した **JUCE の最小構成アプリケーション**です。
+CMake を使用した **JUCE の開発中アプリケーション**です。
+Roland MC-500 のステップシーケンサー部を作成しています。
+実機を知らないのでなんとなくで。
 
 ## 🚀 動作環境
 - **OS**: Arch Linux (C++20 対応コンパイラ)
@@ -22,7 +24,7 @@ cmake ..
 cmake --build .
 
 # 4. アプリの実行
-./JuceMinimum_artefacts/JuceMinimum
+./JuceSteps_artefacts/Debug/JuceSteps
 ```
 
 ## 📝 ライセンス
