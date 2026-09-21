@@ -1,4 +1,5 @@
 #include "LcdComponent.h"
+#include "juce_core/juce_core.h"
 #include "juce_graphics/juce_graphics.h"
 
 // ==========================================
@@ -25,7 +26,7 @@ void LcdComponent::paint(juce::Graphics& g) {
     // 4. 文字列の組み立て
     // フォーマット：「000-00-000 S:096 N:C 3(060) V:064 G:0096」
     juce::String text = juce::String::formatted(
-        "%03d-%02d-%03d S:%03d N:%s(%03d) V:%03d G:%04d",
+        "%03d-%02d-%03d S:%03d N:%-4.4s(%03d) V:%03d G:%04d",
         mMeasure, mBeat, mClock,
         mStepTime,
         mNoteName.toRawUTF8(), mNoteNumber,
@@ -72,15 +73,15 @@ void LcdComponent::paint(juce::Graphics& g) {
                 highlightW = charWidth * 3.0f;   // 3文字分
                 break;
             case EditMode::Note:
-                highlightX += charWidth * 19.0f; // Note「C 3(060)」の開始文字位置
-                highlightW = charWidth * 8.0f;   // 8文字分
+                highlightX += charWidth * 19.0f; // Note「C#-1(060)」の開始文字位置
+                highlightW = charWidth * 9.0f;   // 9文字分
                 break;
             case EditMode::Velocity:
-                highlightX += charWidth * 30.0f; // Velocity「064」の開始文字位置
+                highlightX += charWidth * 31.0f; // Velocity「064」の開始文字位置
                 highlightW = charWidth * 3.0f;   // 3文字分
                 break;
             case EditMode::GateTime:
-                highlightX += charWidth * 36.0f; // GateTime「0096」の開始文字位置
+                highlightX += charWidth * 37.0f; // GateTime「0096」の開始文字位置
                 highlightW = charWidth * 4.0f;   // 4文字分
                 break;
             default:
@@ -150,7 +151,8 @@ void LcdComponent::setNoteName(juce::String& name)
 }
 void LcdComponent::setNoteNumber(int number)
 {
-    mNoteNumber = number;
+    juce::String name = getMc500StyleNoteName(number);
+    setNoteInfo(name, number);
     repaint();
 }
 void LcdComponent::setVelocity(int vel) {
@@ -164,4 +166,35 @@ void LcdComponent::setGateTime(int gate) {
 void LcdComponent::setEditMode (EditMode mode) {
     mCurrentMode = mode;
     repaint(); // モードが変わったら液晶を再描画して反転表示を更新
+}
+
+// JUCEの関数を使ってノート名を取得する
+juce::String LcdComponent::getMc500StyleNoteName(int noteNumber)
+{
+    if (noteNumber < 0 || noteNumber > 127)
+        return "---";
+
+    // 第1引数: MIDIノート番号 (0-127)
+    // 第2引数: true = シャープ表記 (C#), false = フラット表記 (Db)
+    // 第3引数: true = オクターブ番号を含める
+    // 第4引数: 4 = 中央のC(60)を「C4」とする (これによってノート0が「-1」になります)
+    juce::String noteName = juce::MidiMessage::getMidiNoteName(noteNumber, true, true, 4);
+
+    // 【補足】JUCEの標準出力は半角スペースが挟まれない（例: "C-1", "C4", "C#4"）ため、
+    // もしMC-500のように「C 4」とシャープ無しの位置を空けたい場合は、文字列を少し加工します。
+    if (noteName.length() >= 2 && noteName[1] != '#')
+    {
+        // 2文字目がシャープ（#）でもマイナス（-）でもない、または「C4」のように2文字目がオクターブ数値の場合
+        // 1文字目の後ろに半角スペースを挿入して桁を揃える
+        if (noteName[1] != '-') {
+            noteName = noteName.substring(0, 1) + " " + noteName.substring(1);
+        }
+    }
+    // オクターブがマイナスで、シャープがない場合（例: "C-1" -> "C -1"）
+    if (noteName.startsWith("-") == false && noteName.contains("-") && !noteName.contains("#"))
+    {
+         noteName = noteName.replace("-", " -");
+    }
+
+    return noteName;
 }

@@ -87,44 +87,44 @@ MC500_InputComponent::MC500_InputComponent()
                 break;
             case DialTargetMode::Measure:
             {
-                int nextStep = lcdArea.getMeasure() + intDelta;
-                lcdArea.setMeasure (juce::jmax (0, nextStep));
+                int numNew = lcdArea.getMeasure() + intDelta;
+                lcdArea.setMeasure (juce::jlimit (0, 999, numNew));
                 break;
             }
             case DialTargetMode::Beat:
             {
-                int nextStep = lcdArea.getBeat() + intDelta;
-                lcdArea.setBeat (juce::jmax (0, nextStep));
+                int numNew = lcdArea.getBeat() + intDelta;
+                lcdArea.setBeat (juce::jlimit (0, 9, numNew));
                 break;
             }
             case DialTargetMode::Clock:
             {
-                int nextStep = lcdArea.getClock() + intDelta;
-                lcdArea.setClock (juce::jmax (0, nextStep));
+                int numNew = lcdArea.getClock() + intDelta;
+                lcdArea.setClock (juce::jlimit (0, 999, numNew));
                 break;
             }
             case DialTargetMode::StepTime:
             {
-                int nextStep = lcdArea.getStepTime() + intDelta;
-                lcdArea.setStepTime (juce::jmax (0, nextStep));
+                int numNew = lcdArea.getStepTime() + intDelta;
+                lcdArea.setStepTime (juce::jlimit (0, 999, numNew));
                 break;
             }
             case DialTargetMode::Note:
             {
-                int nextStep = lcdArea.getNoteNumber() + intDelta;
-                lcdArea.setNoteNumber (juce::jmax (0, nextStep));
+                int numNew = lcdArea.getNoteNumber() + intDelta;
+                lcdArea.setNoteNumber (juce::jlimit (0, 127, numNew));
                 break;
             }
             case DialTargetMode::Velocity:
             {
-                int nextVel = lcdArea.getVelocity() + intDelta;
-                lcdArea.setVelocity (juce::jlimit (0, 127, nextVel));
+                int numNew = lcdArea.getVelocity() + intDelta;
+                lcdArea.setVelocity (juce::jlimit (0, 127, numNew));
                 break;
             }
             case DialTargetMode::GateTime:
             {
-                int nextGate = lcdArea.getGateTime() + intDelta;
-                lcdArea.setGateTime (juce::jmax (0, nextGate));
+                int numNew = lcdArea.getGateTime() + intDelta;
+                lcdArea.setGateTime (juce::jlimit (0, 9999, numNew));
                 break;
             }
             default:
@@ -180,9 +180,55 @@ MC500_InputComponent::MC500_InputComponent()
                 juce::String numStr = btn->getButtonText();
                 int numValue = numStr.getIntValue();
 
-                // 例として、押された数字をベロシティの下一桁に反映、あるいは特定のテスト値を入れる
-                // 実際は「テンキーで数値を入力してENTERで確定」というステップ入力のロジックへ発展させます。
-                lcdArea.setVelocity (60 + (numValue * 5));
+                switch (currentDialMode)
+                {
+                    case DialTargetMode::None:
+                        break;
+                    case DialTargetMode::Measure:
+                    {
+                        int numNew = (lcdArea.getMeasure() * 10 + numValue) % 1000;
+                        lcdArea.setMeasure (juce::jlimit (0, 999, numNew));
+                        break;
+                    }
+                    case DialTargetMode::Beat:
+                    {
+                        int numNew = (lcdArea.getBeat() * 10 + numValue) % 10;
+                        lcdArea.setBeat (juce::jlimit (0, 9, numNew));
+                        break;
+                    }
+                    case DialTargetMode::Clock:
+                    {
+                        int numNew = (lcdArea.getClock() * 10 + numValue) % 1000;
+                        lcdArea.setClock (juce::jlimit (0, 999, numNew));
+                        break;
+                    }
+                    case DialTargetMode::StepTime:
+                    {
+                        int numNew = (lcdArea.getStepTime() * 10 + numValue) % 1000;
+                        lcdArea.setStepTime (juce::jlimit (0, 999, numNew));
+                        break;
+                    }
+                    case DialTargetMode::Note:
+                    {
+                        int numNew = (lcdArea.getNoteNumber() * 10 + numValue) % 1000;
+                        lcdArea.setNoteNumber (juce::jlimit (0, 999, numNew));
+                        break;
+                    }
+                    case DialTargetMode::Velocity:
+                    {
+                        int numNew = (lcdArea.getVelocity() * 10 + numValue) % 1000;
+                        lcdArea.setVelocity (juce::jlimit (0, 999, numNew));
+                        break;
+                    }
+                    case DialTargetMode::GateTime:
+                    {
+                        int numNew = (lcdArea.getGateTime() * 10 + numValue) % 10000;
+                        lcdArea.setGateTime (juce::jlimit (0, 9999, numNew));
+                        break;
+                    }
+                    default:
+                        break;
+                }
             };
         }
     }
