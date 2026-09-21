@@ -1,0 +1,5 @@
+/build/
+/.zed/
+.DS_Store
+compile_commands.json
+memo.txt
