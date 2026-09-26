@@ -1,5 +1,4 @@
 #pragma once
-#include "juce_core/juce_core.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_basics/midi/juce_MidiMessage.h>
 

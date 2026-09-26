@@ -1,5 +1,6 @@
 #include "juce_graphics/juce_graphics.h"
 #include "juce_gui_basics/juce_gui_basics.h"
+#include <array>
 #include "MC500_InputComponent.h"
 
 MC500_InputComponent::MC500_InputComponent()
@@ -15,9 +16,9 @@ MC500_InputComponent::MC500_InputComponent()
 
     // 2. 左ボタン設定
     leftButton.setLookAndFeel (&leftArrowLookAndFeel);
+    addAndMakeVisible(leftButton);
     rightButton.setLookAndFeel (&rightArrowLookAndFeel);
-    setupButton (leftButton, juce::String::fromUTF8 ("←"));
-    setupButton (rightButton, juce::String::fromUTF8 ("→"));
+    addAndMakeVisible(rightButton);
 
     // 3. 中央ボタン設定（2列4行分 = 8個）
     std::vector<juce::String> centerLabels {
@@ -34,16 +35,15 @@ MC500_InputComponent::MC500_InputComponent()
     }
 
     // 4. 右テンキーボタン設定 (10個)
-    std::vector<juce::String> numLabels {
-        "7", "8", "9",
-        "4", "5", "6",
-        "1", "2", "3",
-        "0"
-    };
-    for (const auto& label : numLabels)
+    const std::array<int, 10> number
     {
-        auto* btn = new juce::TextButton();
-        setupButton (*btn, label);
+        7, 8, 9, 4, 5, 6, 1, 2, 3, 0
+    };
+    for (auto number1 : number)
+    {
+        auto* btn = new Multi10KeyButton(number1);
+        btn->setConnectedEdges (0);
+        addAndMakeVisible (btn);
         numButtons.add (btn);
     }
     setupButton (enterButton, "ENTER");
@@ -398,28 +398,7 @@ bool MC500_InputComponent::keyPressed (const juce::KeyPress& key)
         return true;
     }
 
-    // ==============================================================================
-    // 4. 中央のボタン配列 (MODE, EDIT, F1〜F4 など) の操作
-    // ==============================================================================
-    // 例：中央の1番目のボタンを 'M' キーに対応させる場合
-    if (key.isKeyCode ('m') || key.isKeyCode ('M'))
-    {
-        if (centerButtons.size() > 0 && centerButtons[0] != nullptr) { centerButtons[0]->triggerClick(); return true; }
-    }
-
-    // 例：中央の2番目のボタンを 'E' キーに対応させる場合
-    if (key.isKeyCode ('e') || key.isKeyCode ('E'))
-    {
-        if (centerButtons.size() > 1 && centerButtons[1] != nullptr) { centerButtons[1]->triggerClick(); return true; }
-    }
-
-    // PCのファンクションキー F1 〜 F4 と連動
-    if (key == juce::KeyPress::F1Key) { if (centerButtons.size() > 2 && centerButtons[2] != nullptr) { centerButtons[2]->triggerClick(); return true; } }
-    if (key == juce::KeyPress::F2Key) { if (centerButtons.size() > 3 && centerButtons[3] != nullptr) { centerButtons[3]->triggerClick(); return true; } }
-    if (key == juce::KeyPress::F3Key) { if (centerButtons.size() > 4 && centerButtons[4] != nullptr) { centerButtons[4]->triggerClick(); return true; } }
-    if (key == juce::KeyPress::F4Key) { if (centerButtons.size() > 5 && centerButtons[5] != nullptr) { centerButtons[5]->triggerClick(); return true; } }
-
-    return false; // 割り当てていないその他のキーはスルー
+    return false;
 }
 
 void MC500_InputComponent::visibilityChanged()
@@ -444,4 +423,29 @@ void MC500_InputComponent::timerCallback()
 
     // 全ての構築が終わったこのタイミングであれば、絶対にアサーションを出さずにフォーカスを取れます
     grabKeyboardFocus();
+}
+
+void MC500_InputComponent::modifierKeysChanged (const juce::ModifierKeys& modifiers)
+{
+    if (currentDialMode == DialTargetMode::StepTime)
+    {
+        leftArrowLookAndFeel.setDrawMode(modifiers.isShiftDown());
+        leftButton.repaint();
+        rightArrowLookAndFeel.setDrawMode(modifiers.isShiftDown());
+        rightButton.repaint();
+        if (modifiers.isShiftDown())
+        {
+            for (auto* btn : numButtons)
+            {
+                btn->setDrawMode(Multi10KeyButtonLookAndFeel::Multi10KeyDrawMode::NoteDuration);
+            }
+        }
+        else
+        {
+            for (auto* btn : numButtons)
+            {
+                btn->setDrawMode(Multi10KeyButtonLookAndFeel::Multi10KeyDrawMode::Number);
+            }
+        }
+    }
 }

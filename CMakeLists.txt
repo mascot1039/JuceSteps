@@ -20,6 +20,8 @@ target_sources(JuceSteps PRIVATE
     Source/InfiniteRotarySliderComponent.cpp
     Source/LcdComponent.cpp
     Source/LcdComponent.h
+    Source/Multi10KeyButton.cpp
+    Source/Multi10KeyButton.h
 )
 
 target_include_directories(JuceSteps PRIVATE

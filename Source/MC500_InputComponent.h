@@ -4,6 +4,8 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "InfiniteRotarySliderComponent.h"
 #include "LcdComponent.h"
+#include "Multi10KeyButton.h"
+#include "juce_core/juce_core.h"
 
 // ==============================================================================
 // ★実機風の黒い丸型ダイヤルを描画するためのカスタムLook&Feelクラス
@@ -73,60 +75,69 @@ class ArrowButtonLookAndFeel : public juce::LookAndFeel_V4
 public:
     ArrowButtonLookAndFeel (bool isLeftArrow) : isLeft (isLeftArrow) {}
 
+    void setDrawMode(bool mode)
+    {
+        drawMode = mode;
+    }
+
     void drawButtonText (juce::Graphics& g, juce::TextButton& button,
                          bool isMouseOverButton, bool isButtonDown) override
     {
-        // テキストは描画せず、代わりに三角形を描画するため、この関数は空にします。
-        juce::ignoreUnused(g, button, isMouseOverButton, isButtonDown);
-    }
+        auto textColor = button.findColour (juce::TextButton::textColourOffId);
+        if (isButtonDown)           g.setColour (textColor.withAlpha (0.6f));
+        else if (isMouseOverButton) g.setColour (textColor.brighter (0.1f));
+        else                        g.setColour (textColor);
 
-    void drawButtonBackground (juce::Graphics& g, juce::Button& button,
-                               const juce::Colour& backgroundColour,
-                               bool isMouseOverButton, bool isButtonDown) override
-    {
-        // 1. 通常のボタン背景をベースクラスに描画してもらう（枠線や丸みなどを維持）
-        juce::LookAndFeel_V4::drawButtonBackground (g, button, backgroundColour, isMouseOverButton, isButtonDown);
-
-        // 2. 三角形（矢印グラフィック）の描画計算
-        auto width = (float) button.getWidth();
-        auto height = (float) button.getHeight();
-
-        // ボタンの中心を基準に、綺麗な正三角形のサイズを決定
-        auto arrowSize = juce::jmin (width, height) * 0.35f;
-        auto centerX = width * 0.5f;
-        auto centerY = height * 0.5f;
-
-        juce::Path p;
-
-        if (isLeft)
+        if (!drawMode)
         {
-            // 左向きの三角形 (◀)
-            p.addTriangle (centerX - arrowSize * 0.5f, centerY,                  // 先端（左）
-                           centerX + arrowSize * 0.5f, centerY - arrowSize * 0.4f, // 右上
-                           centerX + arrowSize * 0.5f, centerY + arrowSize * 0.4f); // 右下
+            auto width = (float) button.getWidth();
+            auto height = (float) button.getHeight();
+
+            juce::Path p;
+
+            // ボタンの中心を基準に、綺麗な正三角形のサイズを決定
+            auto arrowSize = juce::jmin (width, height) * 0.35f;
+            auto centerX = width * 0.5f;
+            auto centerY = height * 0.5f;
+
+            if (isLeft)
+            {
+                // 左向きの三角形 (◀)
+                p.addTriangle (centerX - arrowSize * 0.5f, centerY,                  // 先端（左）
+                            centerX + arrowSize * 0.5f, centerY - arrowSize * 0.4f, // 右上
+                            centerX + arrowSize * 0.5f, centerY + arrowSize * 0.4f); // 右下
+            }
+            else
+            {
+                // 右向きの三角形 (▶)
+                p.addTriangle (centerX + arrowSize * 0.5f, centerY,                  // 先端（右）
+                            centerX - arrowSize * 0.5f, centerY - arrowSize * 0.4f, // 左上
+                            centerX - arrowSize * 0.5f, centerY + arrowSize * 0.4f); // 左下
+            }
+            g.fillPath (p);
         }
         else
         {
-            // 右向きの三角形 (▶)
-            p.addTriangle (centerX + arrowSize * 0.5f, centerY,                  // 先端（右）
-                           centerX - arrowSize * 0.5f, centerY - arrowSize * 0.4f, // 左上
-                           centerX - arrowSize * 0.5f, centerY + arrowSize * 0.4f); // 左下
+            auto bounds = button.getLocalBounds().toFloat();
+            float fontSize = bounds.getHeight() * 0.36f;
+            g.setFont (juce::Font (fontSize, juce::Font::plain));
+
+            if (isLeft)
+            {
+                auto buttonText = juce::String("TIE");
+                g.drawText (buttonText, bounds, juce::Justification::centred, true);
+            }
+            else
+            {
+                auto buttonText = juce::String("REST");
+                g.drawText (buttonText, bounds, juce::Justification::centred, true);
+            }
         }
-
-        // 3. 三角形の色を決定（文字色と同じ設定を流用するか、固定の色にする）
-        // ここではテキスト用カラー（デフォルトなら白や薄いグレー）を取得して塗ります
-        auto arrowColor = button.findColour (juce::TextButton::textColourOffId);
-
-        // マウスホバーやクリック時に少し色を変化させる（お好みで調整してください）
-        if (isButtonDown)      g.setColour (arrowColor.withAlpha (0.6f));
-        else if (isMouseOverButton) g.setColour (arrowColor.brighter (0.1f));
-        else                   g.setColour (arrowColor);
-
-        g.fillPath (p);
     }
 
 private:
     bool isLeft;
+    bool drawMode = false;
 };
 
 // ==============================================================================
@@ -144,6 +155,7 @@ public:
     bool keyPressed (const juce::KeyPress& key) override;
     void mouseDown (const juce::MouseEvent& event) override;
     void visibilityChanged() override;
+    void modifierKeysChanged (const juce::ModifierKeys& modifiers) override;
 
 private:
     void timerCallback() override;
@@ -180,7 +192,7 @@ private:
     juce::OwnedArray<juce::TextButton> centerButtons;
 
     // 右のテンキー配列
-    juce::OwnedArray<juce::TextButton> numButtons;
+    juce::OwnedArray<Multi10KeyButton> numButtons;
     juce::TextButton enterButton;
 
     // ★カスタムLook&Feelのインスタンスを追加
