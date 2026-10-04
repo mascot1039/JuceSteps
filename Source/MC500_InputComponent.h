@@ -80,6 +80,11 @@ public:
         drawMode = mode;
     }
 
+    bool getDrawMode()
+    {
+        return drawMode;
+    }
+
     void drawButtonText (juce::Graphics& g, juce::TextButton& button,
                          bool isMouseOverButton, bool isButtonDown) override
     {
@@ -171,11 +176,13 @@ private:
     };
 
     DialTargetMode currentDialMode = DialTargetMode::StepTime; // 初期状態はStepTime
+    bool editParam = false;
+    bool isNoteName = false;
 
-    static constexpr std::array<int, 10> stepTimeValues
+    static constexpr std::array<int, 9> stepTimeValues
     {
         192, 96, 64, 48, 32,
-         24, 16, 12,  8,  6
+         24, 16, 12,  6
     };
 
     std::size_t stepTimeIndex = 1;   // 初期値 96

@@ -1,4 +1,5 @@
 #include "Multi10KeyButton.h"
+#include "juce_core/juce_core.h"
 
 Multi10KeyButton::Multi10KeyButton (int number)
 {
@@ -18,11 +19,25 @@ Multi10KeyButton::~Multi10KeyButton()
     setLookAndFeel (nullptr);
 }
 
-void Multi10KeyButton::setDrawMode(Multi10KeyButtonLookAndFeel::Multi10KeyDrawMode newMode)
+void Multi10KeyButton::setDrawMode(Multi10KeyDrawMode newMode)
 {
     if (buttonLookAndFeel != nullptr)
     {
         buttonLookAndFeel->setDrawMode (newMode);
         repaint(); // 💡 モードが変わったら再描画を要求する
     }
+}
+Multi10KeyDrawMode Multi10KeyButton::getDrawMode()
+{
+    return  buttonLookAndFeel->getDrawMode();
+}
+
+int Multi10KeyButton::getNumber()
+{
+    return buttonLookAndFeel->getNumber();
+}
+
+juce::String Multi10KeyButton::getNoteName()
+{
+    return buttonLookAndFeel->getNoteName();
 }

@@ -1,22 +1,38 @@
 #pragma once
+#include "juce_core/juce_core.h"
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <array>
+
+enum class Multi10KeyDrawMode
+{
+    Number,
+    NoteName,
+    NoteDuration
+};
 
 class Multi10KeyButtonLookAndFeel : public juce::LookAndFeel_V4
 {
 public:
-    enum class Multi10KeyDrawMode
-    {
-        Number,
-        NoteName,
-        NoteDuration
-    };
-
     Multi10KeyButtonLookAndFeel (int number) : num (number), drawMode(Multi10KeyDrawMode::Number) {}
 
     void setDrawMode(Multi10KeyDrawMode mode)
     {
         drawMode = mode;
+    }
+
+    Multi10KeyDrawMode getDrawMode()
+    {
+        return drawMode;
+    }
+
+    int getNumber()
+    {
+        return num;
+    }
+
+    juce::String getNoteName()
+    {
+        return noteName[(size_t)num];
     }
 
     void drawButtonText (juce::Graphics& g, juce::TextButton& button,
@@ -302,7 +318,11 @@ public:
     /** デストラクター */
     ~Multi10KeyButton() override;
 
-    void setDrawMode(Multi10KeyButtonLookAndFeel::Multi10KeyDrawMode newMode);
+    void setDrawMode(Multi10KeyDrawMode newMode);
+    Multi10KeyDrawMode getDrawMode();
+
+    int getNumber();
+    juce::String getNoteName();
 
 private:
     // このボタン専用の LookAndFeel をスマートポインタで安全に保持

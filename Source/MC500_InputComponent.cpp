@@ -1,3 +1,5 @@
+#include "Multi10KeyButton.h"
+#include "juce_core/juce_core.h"
 #include "juce_graphics/juce_graphics.h"
 #include "juce_gui_basics/juce_gui_basics.h"
 #include <array>
@@ -129,32 +131,40 @@ MC500_InputComponent::MC500_InputComponent()
     // ▽▽▽ 追記：左矢印ボタンの処理 ▽▽▽
     leftButton.onClick = [this]()
     {
-        // 現在のモードを取得
-        auto mode = lcdArea.getEditMode(); // ※LcdComponentにゲッターが無い場合は後述の修正参照
+        if (!leftArrowLookAndFeel.getDrawMode())
+        {
+            // 現在のモードを取得
+            auto mode = lcdArea.getEditMode(); // ※LcdComponentにゲッターが無い場合は後述の修正参照
 
-        // モードを左（逆順）に切り替える
-        int modeInt = static_cast<int>(mode);
-        modeInt--;
-        if (modeInt < static_cast<int>(LcdComponent::EditMode::StepTime))
-            modeInt = static_cast<int>(LcdComponent::EditMode::GateTime); // 最後の項目へループ
+            // モードを左（逆順）に切り替える
+            int modeInt = static_cast<int>(mode);
+            modeInt--;
+            if (modeInt < static_cast<int>(LcdComponent::EditMode::StepTime))
+                modeInt = static_cast<int>(LcdComponent::EditMode::GateTime); // 最後の項目へループ
 
-        lcdArea.setEditMode(static_cast<LcdComponent::EditMode>(modeInt));
-        currentDialMode = static_cast<DialTargetMode>(modeInt);
+            lcdArea.setEditMode(static_cast<LcdComponent::EditMode>(modeInt));
+            currentDialMode = static_cast<DialTargetMode>(modeInt);
+        }
+        isNoteName = false;
     };
 
     // ▽▽▽ 追記：右矢印ボタンの処理 ▽▽▽
     rightButton.onClick = [this]()
     {
-        auto mode = lcdArea.getEditMode();
+        if (!rightArrowLookAndFeel.getDrawMode())
+        {
+            auto mode = lcdArea.getEditMode();
 
-        // モードを右（正順）に切り替える
-        int modeInt = static_cast<int>(mode);
-        modeInt++;
-        if (modeInt > static_cast<int>(LcdComponent::EditMode::GateTime))
-            modeInt = static_cast<int>(LcdComponent::EditMode::StepTime); // 最初の項目へループ
+            // モードを右（正順）に切り替える
+            int modeInt = static_cast<int>(mode);
+            modeInt++;
+            if (modeInt > static_cast<int>(LcdComponent::EditMode::GateTime))
+                modeInt = static_cast<int>(LcdComponent::EditMode::StepTime); // 最初の項目へループ
 
-        lcdArea.setEditMode(static_cast<LcdComponent::EditMode>(modeInt));
-        currentDialMode = static_cast<DialTargetMode>(modeInt);
+            lcdArea.setEditMode(static_cast<LcdComponent::EditMode>(modeInt));
+            currentDialMode = static_cast<DialTargetMode>(modeInt);
+        }
+        isNoteName = false;
     };
 
     // ==============================================================================
@@ -168,8 +178,9 @@ MC500_InputComponent::MC500_InputComponent()
         {
             btn->onClick = [this, btn]()
             {
-                juce::String numStr = btn->getButtonText();
-                int numValue = numStr.getIntValue();
+                //juce::String numStr = btn->getButtonText();
+                //int numValue = numStr.getIntValue();
+                int numValue = btn->getNumber();
 
                 switch (currentDialMode)
                 {
@@ -177,12 +188,56 @@ MC500_InputComponent::MC500_InputComponent()
                         break;
                     case DialTargetMode::StepTime:
                     {
+                        if (btn->getDrawMode() == Multi10KeyDrawMode::NoteDuration)
+                        {
+                            int idx = 9 - numValue;
+                            if (idx >= 0 && idx < (int)stepTimeValues.size())
+                            {
+                                lcdArea.setStepTime(stepTimeValues[(size_t)idx]);
+                            }
+                        }
+                        else
+                        {
+                            int numNew = (lcdArea.getStepTime() * 10 + numValue) % 1000;
+                            lcdArea.setStepTime (juce::jlimit (0, 999, numNew));
+                        }
                         break;
                     }
                     case DialTargetMode::Note:
                     {
-                        int numNew = (lcdArea.getNoteNumber() * 10 + numValue) % 1000;
-                        lcdArea.setNoteNumber (juce::jlimit (0, 999, numNew));
+                        if (leftArrowLookAndFeel.getDrawMode())
+                        {
+                            juce::String inp = btn->getNoteName();
+                            bool isNote = std::all_of(inp.begin(), inp.end(), [](char ch) {
+                                return ch >= 'A' && ch <= 'G';
+                            });
+                            juce::String noteNameNew;
+                            juce::String noteNameOld = lcdArea.getNoteName();
+                            if (isNote)
+                            {
+                                noteNameNew = inp + " " + noteNameOld.substring(2);
+                            }
+                            else
+                            {
+                                noteNameNew = noteNameOld.substring(0, 1) + inp + noteNameOld.substring(2);
+                            }
+                            lcdArea.setNoteName(noteNameNew);
+                            isNoteName = true;
+                        }
+                        else
+                        {
+                            if (isNoteName)
+                            {
+                                juce::String noteNameOld = lcdArea.getNoteName();
+                                juce::String noteNameNew = noteNameOld.substring(0, 2) + juce::String(numValue);
+                                lcdArea.setNoteName(noteNameNew);
+                            }
+                            else
+                            {
+                                int numNew = (lcdArea.getNoteNumber() * 10 + numValue) % 1000;
+                                lcdArea.setNoteNumber (juce::jlimit (0, 999, numNew));
+                            }
+                        }
                         break;
                     }
                     case DialTargetMode::Velocity:
@@ -370,16 +425,16 @@ bool MC500_InputComponent::keyPressed (const juce::KeyPress& key)
     // 7->0, 8->1, 9->2, 4->3, 5->4, 6->5, 1->6, 2->7, 3->8, 0->9
     int targetIndex = -1;
 
-    if      (key.isKeyCode ('7') || key.isKeyCode (juce::KeyPress::numberPad7)) targetIndex = 0;
-    else if (key.isKeyCode ('8') || key.isKeyCode (juce::KeyPress::numberPad8)) targetIndex = 1;
-    else if (key.isKeyCode ('9') || key.isKeyCode (juce::KeyPress::numberPad9)) targetIndex = 2;
-    else if (key.isKeyCode ('4') || key.isKeyCode (juce::KeyPress::numberPad4)) targetIndex = 3;
-    else if (key.isKeyCode ('5') || key.isKeyCode (juce::KeyPress::numberPad5)) targetIndex = 4;
-    else if (key.isKeyCode ('6') || key.isKeyCode (juce::KeyPress::numberPad6)) targetIndex = 5;
-    else if (key.isKeyCode ('1') || key.isKeyCode (juce::KeyPress::numberPad1)) targetIndex = 6;
-    else if (key.isKeyCode ('2') || key.isKeyCode (juce::KeyPress::numberPad2)) targetIndex = 7;
-    else if (key.isKeyCode ('3') || key.isKeyCode (juce::KeyPress::numberPad3)) targetIndex = 8;
-    else if (key.isKeyCode ('0') || key.isKeyCode (juce::KeyPress::numberPad0)) targetIndex = 9;
+    if      (key.isKeyCode (juce::KeyPress::numberPad7)) targetIndex = 0;
+    else if (key.isKeyCode (juce::KeyPress::numberPad8)) targetIndex = 1;
+    else if (key.isKeyCode (juce::KeyPress::numberPad9)) targetIndex = 2;
+    else if (key.isKeyCode (juce::KeyPress::numberPad4)) targetIndex = 3;
+    else if (key.isKeyCode (juce::KeyPress::numberPad5)) targetIndex = 4;
+    else if (key.isKeyCode (juce::KeyPress::numberPad6)) targetIndex = 5;
+    else if (key.isKeyCode (juce::KeyPress::numberPad1)) targetIndex = 6;
+    else if (key.isKeyCode (juce::KeyPress::numberPad2)) targetIndex = 7;
+    else if (key.isKeyCode (juce::KeyPress::numberPad3)) targetIndex = 8;
+    else if (key.isKeyCode (juce::KeyPress::numberPad0)) targetIndex = 9;
 
     // 該当する数字キーが押されていた場合、正しいボタンを発火させる
     if (targetIndex != -1)
@@ -427,25 +482,33 @@ void MC500_InputComponent::timerCallback()
 
 void MC500_InputComponent::modifierKeysChanged (const juce::ModifierKeys& modifiers)
 {
-    if (currentDialMode == DialTargetMode::StepTime)
+    leftArrowLookAndFeel.setDrawMode(modifiers.isShiftDown());
+    leftButton.repaint();
+    rightArrowLookAndFeel.setDrawMode(modifiers.isShiftDown());
+    rightButton.repaint();
+
+    if (modifiers.isShiftDown())
     {
-        leftArrowLookAndFeel.setDrawMode(modifiers.isShiftDown());
-        leftButton.repaint();
-        rightArrowLookAndFeel.setDrawMode(modifiers.isShiftDown());
-        rightButton.repaint();
-        if (modifiers.isShiftDown())
+        if (currentDialMode == DialTargetMode::StepTime)
         {
             for (auto* btn : numButtons)
             {
-                btn->setDrawMode(Multi10KeyButtonLookAndFeel::Multi10KeyDrawMode::NoteDuration);
+                btn->setDrawMode(Multi10KeyDrawMode::NoteDuration);
             }
         }
-        else
+        else if (currentDialMode == DialTargetMode::Note)
         {
             for (auto* btn : numButtons)
             {
-                btn->setDrawMode(Multi10KeyButtonLookAndFeel::Multi10KeyDrawMode::Number);
+                btn->setDrawMode(Multi10KeyDrawMode::NoteName);
             }
+        }
+    }
+    else
+    {
+        for (auto* btn : numButtons)
+        {
+            btn->setDrawMode(Multi10KeyDrawMode::Number);
         }
     }
 }
