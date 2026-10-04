@@ -27,7 +27,7 @@ MC500_InputComponent::MC500_InputComponent()
         "MIDI", "EDIT",
         "FUNC", "MICRO",
         "MODE", "AVAIL",
-        "SHIFT", "SPACE"
+        "SHIFT"
     };
     for (const auto& label : centerLabels)
     {
@@ -297,50 +297,67 @@ void MC500_InputComponent::resized()
     // -------------------------------------------------------------
     // 以下、従来の3ブロック分割計算（コントローラーエリア内で実行）
     // -------------------------------------------------------------
-    // 計算しやすいように、全体の幅を「左:中央:右 = 5:5:7」の割合で綺麗にカットします
-    int totalUnit = 5 + 5 + 7; // = 17
+    // 計算しやすいように、全体の幅を「左:中央:右 = 5:4:7」の割合で綺麗にカットします
+    int totalUnit = 5 + 4 + 7; // = 16
     int singleWidth = area.getWidth() / totalUnit;
 
     auto leftArea   = area.removeFromLeft (singleWidth * 5);
     area.removeFromLeft (20); // セクション間の隙間 (gap)
 
-    auto centerArea = area.removeFromLeft (singleWidth * 5);
+    auto centerArea = area.removeFromLeft (singleWidth * 4);
     area.removeFromLeft (20); // セクション間の隙間 (gap)
 
     auto rightArea  = area; // 残りが右セクション
 
     // -------------------------------------------------------------
-    // 1. 【左セクション】の配置 (直接配置)
+    // 1. 【左セクション】の配置 (2列4行 Grid)
     // -------------------------------------------------------------
-    // 上70%をダイヤル、下30%をボタン行にする
-    auto dialArea = leftArea.removeFromTop (leftArea.getWidth());
-    alphaDialSlider.setBounds (dialArea.reduced(10)); // 少し小さくして丸を綺麗に見せる
+    juce::Grid leftGrid;
+    leftGrid.templateColumns = {
+        juce::Grid::TrackInfo (juce::Grid::Fr (1)),
+        juce::Grid::TrackInfo (juce::Grid::Fr (1))
+    };
+    for (int i = 0; i < 4; ++i)
+        leftGrid.templateRows.add (juce::Grid::TrackInfo (juce::Grid::Fr (1)));
+    leftGrid.columnGap = juce::Grid::Px (6);
+    leftGrid.rowGap    = juce::Grid::Px (6);
 
-    leftArea.removeFromTop (8); // 縦の隙間
+    auto alphaDial = juce::GridItem(alphaDialSlider).withMargin(juce::GridItem::Margin(10.0f));
+    leftGrid.items.add (alphaDial.withArea(1, 1, 4, 3));
+    leftGrid.items.add (juce::GridItem(leftButton));
+    leftGrid.items.add (juce::GridItem(rightButton));
 
-    // ← と → ボタンを横並びに分割
-    auto leftButtonArea = leftArea.removeFromLeft (leftArea.getWidth() / 2).reduced(2, 0);
-    auto rightButtonArea = leftArea.reduced(2, 0);
-    leftButton.setBounds (leftButtonArea);
-    rightButton.setBounds (rightButtonArea);
+    leftGrid.performLayout (leftArea);
 
     // -------------------------------------------------------------
     // 2. 【中央セクション】の配置 (2列4行 Grid)
     // -------------------------------------------------------------
     juce::Grid centerGrid;
-    centerGrid.templateColumns = { juce::Grid::TrackInfo (juce::Grid::Fr (1)), juce::Grid::TrackInfo (juce::Grid::Fr (1)) };
+    centerGrid.templateColumns = {
+        juce::Grid::TrackInfo (juce::Grid::Fr (1)),
+        juce::Grid::TrackInfo (juce::Grid::Fr (1))
+    };
     for (int i = 0; i < 4; ++i)
         centerGrid.templateRows.add (juce::Grid::TrackInfo (juce::Grid::Fr (1)));
     centerGrid.columnGap = juce::Grid::Px (6);
     centerGrid.rowGap    = juce::Grid::Px (6);
 
     for (auto* btn : centerButtons)
-        centerGrid.items.add (juce::GridItem (*btn));
+    {
+        if (btn->getButtonText() == "SHIFT")
+        {
+            centerGrid.items.add (juce::GridItem (*btn).withArea(4, 1, 5, 3));
+        }
+        else
+        {
+            centerGrid.items.add (juce::GridItem (*btn));
+        }
+    }
 
     centerGrid.performLayout (centerArea);
 
     // -------------------------------------------------------------
-    // 3. 【右セクション】の配置 (テンキー変則 Grid)
+    // 3. 【右セクション】の配置 (3列4行 Grid)
     // -------------------------------------------------------------
     juce::Grid rightGrid;
     rightGrid.templateColumns = {
@@ -468,6 +485,7 @@ void MC500_InputComponent::visibilityChanged()
     {
         // 非表示になったらタイマーを止める（安全のため）
         stopTimer();
+        changeButtonMode(false);    // SHIFTキーONを解除する
     }
 }
 
@@ -482,12 +500,26 @@ void MC500_InputComponent::timerCallback()
 
 void MC500_InputComponent::modifierKeysChanged (const juce::ModifierKeys& modifiers)
 {
-    leftArrowLookAndFeel.setDrawMode(modifiers.isShiftDown());
+    changeButtonMode(modifiers.isShiftDown());
+}
+
+void MC500_InputComponent::focusLost(juce::Component::FocusChangeType cause)
+{
+    juce::Component::focusLost(cause); // 親クラスの処理を呼ぶ
+    changeButtonMode(false);    // SHIFTキーONを解除する
+}
+
+void MC500_InputComponent::changeButtonMode(bool isShiftDown)
+{
+    auto* shiftBtn = centerButtons.getLast();   // SHIFTボタン
+    shiftBtn->setToggleState(isShiftDown, juce::NotificationType::sendNotification);
+
+    leftArrowLookAndFeel.setDrawMode(isShiftDown);
     leftButton.repaint();
-    rightArrowLookAndFeel.setDrawMode(modifiers.isShiftDown());
+    rightArrowLookAndFeel.setDrawMode(isShiftDown);
     rightButton.repaint();
 
-    if (modifiers.isShiftDown())
+    if (isShiftDown)
     {
         if (currentDialMode == DialTargetMode::StepTime)
         {

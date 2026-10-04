@@ -161,6 +161,7 @@ public:
     void mouseDown (const juce::MouseEvent& event) override;
     void visibilityChanged() override;
     void modifierKeysChanged (const juce::ModifierKeys& modifiers) override;
+    void focusLost(juce::Component::FocusChangeType cause) override;
 
 private:
     void timerCallback() override;
@@ -208,6 +209,7 @@ private:
     ArrowButtonLookAndFeel rightArrowLookAndFeel { false };
 
     void setupButton (juce::TextButton& btn, const juce::String& text);
+    void changeButtonMode(bool isShiftDown);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MC500_InputComponent)
 };
