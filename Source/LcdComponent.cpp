@@ -25,11 +25,16 @@ void LcdComponent::paint(juce::Graphics& g) {
 
     // 4. 文字列の組み立て
     // フォーマット：「000-00-000 S:096 N:C 3(060) V:064 G:0096」
+    juce::String noteNumber = juce::String::formatted("%03d", mNoteNumber);
+    if (mNoteNumber == -1)
+    {
+        noteNumber = "---";
+    }
     juce::String text = juce::String::formatted(
-        "%03d-%02d-%03d S:%03d N:%-4.4s(%03d) V:%03d G:%04d",
+        "%03d-%02d-%03d S:%03d N:%-4.4s(%3.3s) V:%03d G:%04d",
         mMeasure, mBeat, mClock,
         mStepTime,
-        mNoteName.toRawUTF8(), mNoteNumber,
+        mNoteName.toRawUTF8(), noteNumber.toRawUTF8(),
         mVelocity,
         mGateTime
     );
@@ -135,7 +140,9 @@ void LcdComponent::setStepTime(int step) {
 void LcdComponent::setNoteName(const juce::String& name)
 {
     mNoteName = name;
+    mNoteNumber = getNoteNumberFromName(mNoteName);
     repaint();
+    //std::cout << getNoteNumberFromName(name) << std::endl;
 }
 void LcdComponent::setNoteNumber(int number)
 {
@@ -184,4 +191,71 @@ juce::String LcdComponent::getMc500StyleNoteName(int noteNumber)
     }
 
     return noteName;
+}
+
+/**
+ * 仕様に完全準拠したノート名からMIDIノート番号を取得する関数
+ * @param inputName 入力文字列 (例: "C 4", "Bb5", "C#-1", "G -1")
+ * @return MIDIノート番号 (0〜127), 不正な入力・範囲外の場合は -1
+ */
+int LcdComponent::getNoteNumberFromName(const juce::String& inputName)
+{
+    // 1. 文字列全体の長さをチェック (3文字、または-1のときの4文字のみ)
+    int len = inputName.length();
+    if (len != 3 && len != 4) return -1;
+
+    // 大文字化して扱いやすくする
+    juce::String src = inputName.toUpperCase();
+
+    // 2. 各文字の抽出（固定位置）
+    char noteChar = src[0]; // 1文字目: 音名 (A〜G)
+    char accChar  = src[1]; // 2文字目: 記号 (#, B, または半角スペース)
+
+    // 3. バリデーション（不正な文字やフォーマットの拒否）
+    if (noteChar < 'A' || noteChar > 'G') return -1;
+    if (accChar != '#' && accChar != 'B' && accChar != ' ') return -1;
+
+    // オクターブ指定部分の切り出し
+    juce::String octaveStr = src.substring(2);
+
+    // オクターブのバリデーション（3文字なら "0"〜"9"、4文字なら必ず "-1"）
+    if (len == 3 && (octaveStr < "0" || octaveStr > "9")) return -1;
+    if (len == 4 && octaveStr != "-1") return -1;
+
+    int octave = octaveStr.getIntValue();
+
+    // 4. 音名 (A〜G) の基準半音数 (C=0基準)
+    int baseSemitone = 0;
+    if      (noteChar == 'C') baseSemitone = 0;
+    else if (noteChar == 'D') baseSemitone = 2;
+    else if (noteChar == 'E') baseSemitone = 4;
+    else if (noteChar == 'F') baseSemitone = 5;
+    else if (noteChar == 'G') baseSemitone = 7;
+    else if (noteChar == 'A') baseSemitone = 9;
+    else if (noteChar == 'B') baseSemitone = 11;
+
+    // 5. 変化記号の計算
+    int modifier = 0;
+    if (accChar == '#')      modifier = 1;
+    else if (accChar == 'B') modifier = -1; // 大文字化により 'b' は 'B' になる
+
+    int totalSemitone = baseSemitone + modifier;
+
+    // 異名同音によるオクターブの繰り上がり・繰り下がり補正 (例: Cb4 -> B3 / B#3 -> C4)
+    if (totalSemitone < 0)   { totalSemitone += 12; octave -= 1; }
+    if (totalSemitone >= 12) { totalSemitone -= 12; octave += 1; }
+
+    // 補正後のオクターブが仕様（-1〜9）に収まっているかチェック
+    if (octave < -1 || octave > 9) return -1;
+
+    // 6. MIDIノート番号の計算 (中央C "C 4" = 60基準)
+    int noteNumber = (octave + 1) * 12 + totalSemitone;
+
+    // MIDI規格の絶対範囲 (0〜127) に収まっているかチェック
+    if (noteNumber >= 0 && noteNumber <= 127)
+    {
+        return noteNumber;
+    }
+
+    return -1;
 }

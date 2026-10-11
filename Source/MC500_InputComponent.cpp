@@ -18,8 +18,10 @@ MC500_InputComponent::MC500_InputComponent()
 
     // 2. 左ボタン設定
     leftButton.setLookAndFeel (&leftArrowLookAndFeel);
+    leftButton.setWantsKeyboardFocus(false);
     addAndMakeVisible(leftButton);
     rightButton.setLookAndFeel (&rightArrowLookAndFeel);
+    rightButton.setWantsKeyboardFocus(false);
     addAndMakeVisible(rightButton);
 
     // 3. 中央ボタン設定（2列4行分 = 8個）
@@ -32,7 +34,12 @@ MC500_InputComponent::MC500_InputComponent()
     for (const auto& label : centerLabels)
     {
         auto* btn = new juce::TextButton();
+        btn->setWantsKeyboardFocus(false);
         setupButton (*btn, label);
+        if (label == "SHIFT")
+        {
+            btn->setClickingTogglesState(true);
+        }
         centerButtons.add (btn);
     }
 
@@ -45,9 +52,11 @@ MC500_InputComponent::MC500_InputComponent()
     {
         auto* btn = new Multi10KeyButton(number1);
         btn->setConnectedEdges (0);
+        btn->setWantsKeyboardFocus(false);
         addAndMakeVisible (btn);
         numButtons.add (btn);
     }
+    enterButton.setWantsKeyboardFocus(false);
     setupButton (enterButton, "ENTER");
 
     alphaDialSlider.slider.setRange (-1000.0, 1000.0, 1.0);
@@ -168,6 +177,44 @@ MC500_InputComponent::MC500_InputComponent()
     };
 
     // ==============================================================================
+    // ★ 中央ボタンのクリック連動
+    // ==============================================================================
+    auto* shiftBtn = centerButtons.getLast();   // SHIFTボタン
+    shiftBtn->onClick = [this, shiftBtn]()
+    {
+        bool isShift = shiftBtn->getToggleState();
+        leftArrowLookAndFeel.setDrawMode(isShift);
+        leftButton.repaint();
+        rightArrowLookAndFeel.setDrawMode(isShift);
+        rightButton.repaint();
+
+        if (isShift)
+        {
+            if (currentDialMode == DialTargetMode::StepTime)
+            {
+                for (auto* btn : numButtons)
+                {
+                    btn->setDrawMode(Multi10KeyDrawMode::NoteDuration);
+                }
+            }
+            else if (currentDialMode == DialTargetMode::Note)
+            {
+                for (auto* btn : numButtons)
+                {
+                    btn->setDrawMode(Multi10KeyDrawMode::NoteName);
+                }
+            }
+        }
+        else
+        {
+            for (auto* btn : numButtons)
+            {
+                btn->setDrawMode(Multi10KeyDrawMode::Number);
+            }
+        }
+    };
+
+    // ==============================================================================
     // ★ 右のテンキー配列 (0 〜 9 キー) のクリック連動
     // ==============================================================================
     // テンキーで数値をダイレクトに入力するためのバッファ変数などを保持すると実機に近づきます。
@@ -176,7 +223,7 @@ MC500_InputComponent::MC500_InputComponent()
     {
         if (btn != nullptr)
         {
-            btn->onClick = [this, btn]()
+            btn->onClick = [this, btn, shiftBtn]()
             {
                 //juce::String numStr = btn->getButtonText();
                 //int numValue = numStr.getIntValue();
@@ -205,7 +252,12 @@ MC500_InputComponent::MC500_InputComponent()
                     }
                     case DialTargetMode::Note:
                     {
-                        if (leftArrowLookAndFeel.getDrawMode())
+                        //// ★ modifierKeysChanged を介さず、現在のキーボードの物理状態をその場で直接取得する
+                        //auto currentMods = juce::ModifierKeys::getCurrentModifiersRealtime();
+                        //// 画面のSHIFTボタンがON、または実際のSHIFTキーが押されているか
+                        //bool isShiftActive = shiftBtn->getToggleState() || currentMods.isShiftDown();
+                        //if (isShiftActive)
+                        if(shiftBtn->getToggleState())
                         {
                             juce::String inp = btn->getNoteName();
                             bool isNote = std::all_of(inp.begin(), inp.end(), [](char ch) {
@@ -402,7 +454,7 @@ bool MC500_InputComponent::keyPressed (const juce::KeyPress& key)
     // ==============================================================================
 
     // 【右回転】
-    if (key.getKeyCode() == juce::KeyPress::upKey || key.getKeyCode() == ']' || key.getKeyCode() == '}')
+    if (key.getKeyCode() == juce::KeyPress::upKey)
     {
         double step = juce::ModifierKeys::getCurrentModifiers().isShiftDown() ? 10.0 : 1.0;
 
@@ -412,7 +464,7 @@ bool MC500_InputComponent::keyPressed (const juce::KeyPress& key)
     }
 
     // 【左回転】
-    if (key.getKeyCode() == juce::KeyPress::downKey || key.getKeyCode() == '[' || key.getKeyCode() == '{')
+    if (key.getKeyCode() == juce::KeyPress::downKey)
     {
         double step = juce::ModifierKeys::getCurrentModifiers().isShiftDown() ? 10.0 : 1.0;
 
@@ -442,16 +494,16 @@ bool MC500_InputComponent::keyPressed (const juce::KeyPress& key)
     // 7->0, 8->1, 9->2, 4->3, 5->4, 6->5, 1->6, 2->7, 3->8, 0->9
     int targetIndex = -1;
 
-    if      (key.isKeyCode (juce::KeyPress::numberPad7)) targetIndex = 0;
-    else if (key.isKeyCode (juce::KeyPress::numberPad8)) targetIndex = 1;
-    else if (key.isKeyCode (juce::KeyPress::numberPad9)) targetIndex = 2;
-    else if (key.isKeyCode (juce::KeyPress::numberPad4)) targetIndex = 3;
-    else if (key.isKeyCode (juce::KeyPress::numberPad5)) targetIndex = 4;
-    else if (key.isKeyCode (juce::KeyPress::numberPad6)) targetIndex = 5;
-    else if (key.isKeyCode (juce::KeyPress::numberPad1)) targetIndex = 6;
-    else if (key.isKeyCode (juce::KeyPress::numberPad2)) targetIndex = 7;
-    else if (key.isKeyCode (juce::KeyPress::numberPad3)) targetIndex = 8;
-    else if (key.isKeyCode (juce::KeyPress::numberPad0)) targetIndex = 9;
+    if      (key.getKeyCode() == '7' || key.isKeyCode (juce::KeyPress::numberPad7)) targetIndex = 0;
+    else if (key.getKeyCode() == '8' || key.isKeyCode (juce::KeyPress::numberPad8)) targetIndex = 1;
+    else if (key.getKeyCode() == '9' || key.isKeyCode (juce::KeyPress::numberPad9)) targetIndex = 2;
+    else if (key.getKeyCode() == '4' || key.isKeyCode (juce::KeyPress::numberPad4)) targetIndex = 3;
+    else if (key.getKeyCode() == '5' || key.isKeyCode (juce::KeyPress::numberPad5)) targetIndex = 4;
+    else if (key.getKeyCode() == '6' || key.isKeyCode (juce::KeyPress::numberPad6)) targetIndex = 5;
+    else if (key.getKeyCode() == '1' || key.isKeyCode (juce::KeyPress::numberPad1)) targetIndex = 6;
+    else if (key.getKeyCode() == '2' || key.isKeyCode (juce::KeyPress::numberPad2)) targetIndex = 7;
+    else if (key.getKeyCode() == '3' || key.isKeyCode (juce::KeyPress::numberPad3)) targetIndex = 8;
+    else if (key.getKeyCode() == '0' || key.isKeyCode (juce::KeyPress::numberPad0)) targetIndex = 9;
 
     // 該当する数字キーが押されていた場合、正しいボタンを発火させる
     if (targetIndex != -1)
@@ -512,35 +564,10 @@ void MC500_InputComponent::focusLost(juce::Component::FocusChangeType cause)
 void MC500_InputComponent::changeButtonMode(bool isShiftDown)
 {
     auto* shiftBtn = centerButtons.getLast();   // SHIFTボタン
-    shiftBtn->setToggleState(isShiftDown, juce::NotificationType::sendNotification);
-
-    leftArrowLookAndFeel.setDrawMode(isShiftDown);
-    leftButton.repaint();
-    rightArrowLookAndFeel.setDrawMode(isShiftDown);
-    rightButton.repaint();
-
-    if (isShiftDown)
+    // 現在のボタンの状態と、物理キーの状態が食い違っている場合のみ処理
+    if (shiftBtn->getToggleState() != isShiftDown)
     {
-        if (currentDialMode == DialTargetMode::StepTime)
-        {
-            for (auto* btn : numButtons)
-            {
-                btn->setDrawMode(Multi10KeyDrawMode::NoteDuration);
-            }
-        }
-        else if (currentDialMode == DialTargetMode::Note)
-        {
-            for (auto* btn : numButtons)
-            {
-                btn->setDrawMode(Multi10KeyDrawMode::NoteName);
-            }
-        }
-    }
-    else
-    {
-        for (auto* btn : numButtons)
-        {
-            btn->setDrawMode(Multi10KeyDrawMode::Number);
-        }
+        // コードからボタンの状態を強制的に同期させ、onClick を走らせる
+        shiftBtn->setToggleState(isShiftDown, juce::NotificationType::sendNotification);
     }
 }

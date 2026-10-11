@@ -55,6 +55,7 @@ private:
     EditMode mCurrentMode = EditMode::StepTime; // 初期状態はStepTime選択状態
 
     juce::String getMc500StyleNoteName(int noteNumber);
+    int getNoteNumberFromName(const juce::String& inputName);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(LcdComponent)
 };

@@ -179,6 +179,7 @@ private:
     DialTargetMode currentDialMode = DialTargetMode::StepTime; // 初期状態はStepTime
     bool editParam = false;
     bool isNoteName = false;
+    //bool isShift = false;
 
     static constexpr std::array<int, 9> stepTimeValues
     {
