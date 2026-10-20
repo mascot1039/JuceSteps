@@ -1,11 +1,13 @@
 #pragma once
 #include <array>
 #include <cstddef>
+#include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
+#include <juce_graphics/juce_graphics.h>
 #include "InfiniteRotarySliderComponent.h"
 #include "LcdComponent.h"
 #include "Multi10KeyButton.h"
-#include "juce_core/juce_core.h"
+#include "JuceStepsMidiManager.h"
 
 // ==============================================================================
 // ★実機風の黒い丸型ダイヤルを描画するためのカスタムLook&Feelクラス
@@ -166,38 +168,24 @@ public:
 private:
     void timerCallback() override;
 
-    // ダイヤルが現在どのパラメーターを操作しているかを表す状態定義
-    enum class DialTargetMode
-    {
-        None,
-        StepTime,
-        Note,
-        Velocity,
-        GateTime
-    };
+    // --- UI素材の定義 ---
+    LcdComponent lcdArea;
 
-    DialTargetMode currentDialMode = DialTargetMode::StepTime; // 初期状態はStepTime
     bool editParam = false;
     bool isNoteName = false;
-    //bool isShift = false;
-
     static constexpr std::array<int, 9> stepTimeValues
     {
         192, 96, 64, 48, 32,
          24, 16, 12,  6
     };
-
     std::size_t stepTimeIndex = 1;   // 初期値 96
-
-    // --- UI素材の定義 ---
-    LcdComponent lcdArea;
 
     InfiniteRotarySliderComponent alphaDialSlider;
     float dialVisualAngle = 0.0f;
-    juce::TextButton leftButton;
-    juce::TextButton rightButton;
+    juce::TextButton leftButton;    // ◀
+    juce::TextButton rightButton;   // ▶
 
-    // 中央のボタン配列 (OwnedArrayはスマートポインタの動的配列)
+    // 中央のボタン配列
     juce::OwnedArray<juce::TextButton> centerButtons;
 
     // 右のテンキー配列
@@ -211,6 +199,10 @@ private:
 
     void setupButton (juce::TextButton& btn, const juce::String& text);
     void changeButtonMode(bool isShiftDown);
+
+    // MIDIデータ
+    JuceStepsMidiManager stepData;  // バッファ
+    JuceStepEvent stepEvent;        // 入力中（確定前）
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MC500_InputComponent)
 };

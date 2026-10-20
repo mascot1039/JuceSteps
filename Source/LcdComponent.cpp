@@ -1,6 +1,7 @@
 #include "LcdComponent.h"
-#include "juce_core/juce_core.h"
-#include "juce_graphics/juce_graphics.h"
+#include <juce_core/juce_core.h>
+#include <juce_graphics/juce_graphics.h>
+#include <juce_audio_basics/midi/juce_MidiMessage.h>
 
 // ==========================================
 // LcdComponent の実装
@@ -24,20 +25,44 @@ void LcdComponent::paint(juce::Graphics& g) {
     g.setFont(font);
 
     // 4. 文字列の組み立て
-    // フォーマット：「000-00-000 S:096 N:C 3(060) V:064 G:0096」
-    juce::String noteNumber = juce::String::formatted("%03d", mNoteNumber);
-    if (mNoteNumber == -1)
+    juce::String text;
+    if (mCurrentMode == EditMode::TimeSignature)
     {
-        noteNumber = "---";
+        // 拍子を入力
+        // フォーマット：「STEP RECORD  TRK:%1   M:0001  4/4  CH:ALL」
+        text = juce::String::formatted(
+            "STEP RECORD  TRK:%-3d M:%04d %2d/%-2d CH:ALL",
+            mTrack, mMeasure, mNumerator, mDenominator
+        );
     }
-    juce::String text = juce::String::formatted(
-        "%03d-%02d-%03d S:%03d N:%-4.4s(%3.3s) V:%03d G:%04d",
-        mMeasure, mBeat, mClock,
-        mStepTime,
-        mNoteName.toRawUTF8(), noteNumber.toRawUTF8(),
-        mVelocity,
-        mGateTime
-    );
+    else
+    {
+        // STEP入力
+        // フォーマット：「000-00-000 S:096 N:C 3(060) V:064 G:0096」
+        juce::String noteNumber = juce::String::formatted("%03d", mNoteNumber);
+        if (mNoteNumber == -1)
+        {
+            noteNumber = "---";
+        }
+        juce::String velocity = juce::String::formatted("%03d", mVelocity);
+        if (mVelocity == -1)
+        {
+            velocity = "   ";
+        }
+        juce::String gateTime = juce::String::formatted("%04d", mGateTime);
+        if (mGateTime == -1)
+        {
+            gateTime = "    ";
+        }
+        text = juce::String::formatted(
+            "%04d-%02d-%03d S:%03d N:%-4.4s(%3.3s) V:%3.3s G:%4.4s",
+            mMeasure, mBeat, mTick,
+            mStepTime,
+            mNoteName.toRawUTF8(), noteNumber.toRawUTF8(),
+            velocity.toRawUTF8(),
+            gateTime.toRawUTF8()
+        );
+    }
 
     // 🌟 描画位置の基準を明確にする
     // reduced(18) と同じ左上座標を取得
@@ -55,26 +80,40 @@ void LcdComponent::paint(juce::Graphics& g) {
     float highlightY = startY - 2.0f; // 文字の高さに合わせる微調整
     float highlightH = fontHeight + 4.0f;
 
-    if (mCurrentMode != EditMode::None)
+    if (mCurrentParameter != EditParameter::None)
     {
-        switch (mCurrentMode)
+        switch (mCurrentParameter)
         {
-            case EditMode::None:
+            case EditParameter::None:
                 break;
-            case EditMode::StepTime:
-                highlightX += charWidth * 13.0f; // StepTime「0096」の開始文字位置
+            case EditParameter::Numerator:
+                highlightX += charWidth * 28.0f;
+                highlightW = charWidth * 2.0f;
+                break;
+            case EditParameter::Denominator:
+                highlightX += charWidth * 31.0f;
+                highlightW = charWidth * 2.0f;
+                break;
+            case EditParameter::Bar:
+                break;
+            case EditParameter::Beat:
+                break;
+            case EditParameter::Tick:
+                break;
+            case EditParameter::StepTime:
+                highlightX += charWidth * 14.0f; // StepTime「0096」の開始文字位置
                 highlightW = charWidth * 3.0f;   // 3文字分
                 break;
-            case EditMode::Note:
-                highlightX += charWidth * 19.0f; // Note「C#-1(060)」の開始文字位置
+            case EditParameter::Note:
+                highlightX += charWidth * 20.0f; // Note「C#-1(060)」の開始文字位置
                 highlightW = charWidth * 9.0f;   // 9文字分
                 break;
-            case EditMode::Velocity:
-                highlightX += charWidth * 31.0f; // Velocity「064」の開始文字位置
+            case EditParameter::Velocity:
+                highlightX += charWidth * 32.0f; // Velocity「064」の開始文字位置
                 highlightW = charWidth * 3.0f;   // 3文字分
                 break;
-            case EditMode::GateTime:
-                highlightX += charWidth * 37.0f; // GateTime「0096」の開始文字位置
+            case EditParameter::GateTime:
+                highlightX += charWidth * 38.0f; // GateTime「0096」の開始文字位置
                 highlightW = charWidth * 4.0f;   // 4文字分
                 break;
             default:
@@ -94,7 +133,7 @@ void LcdComponent::paint(juce::Graphics& g) {
     g.drawText(text, textBounds, juce::Justification::topLeft, true);
 
     // 7. 【重要・修正】反転部分の中央の文字だけを「黒（暗いグレー）」でくり抜く処理
-    if (mCurrentMode != EditMode::None && highlightW > 0.0f)
+    if (mCurrentParameter != EditParameter::None && highlightW > 0.0f)
     {
         g.saveState();
 
@@ -110,8 +149,8 @@ void LcdComponent::paint(juce::Graphics& g) {
 }
 
 // 外部から値を変更するための関数（値が変わったら repaint() で画面を再描画する）
-void LcdComponent::setTimePosition(int measure, int beat, int clock) {
-    mMeasure = measure; mBeat = beat; mClock = clock;
+void LcdComponent::setTimePosition(int measure, int beat, int tick) {
+    mMeasure = measure; mBeat = beat; mTick = tick;
     repaint();
 }
 void LcdComponent::setNoteInfo(const juce::String& name, int number) {
@@ -128,9 +167,9 @@ void LcdComponent::setBeat(int beat)
     mBeat = beat;
     repaint();
 }
-void LcdComponent::setClock(int clock)
+void LcdComponent::setTick(int tick)
 {
-    mClock = clock;
+    mTick = tick;
     repaint();
 }
 void LcdComponent::setStepTime(int step) {
@@ -149,17 +188,45 @@ void LcdComponent::setNoteNumber(int number)
     juce::String name = getMc500StyleNoteName(number);
     setNoteInfo(name, number);
 }
-void LcdComponent::setVelocity(int vel) {
+void LcdComponent::setVelocity(int vel)
+{
     mVelocity = vel;
     repaint();
 }
-void LcdComponent::setGateTime(int gate) {
+void LcdComponent::setGateTime(int gate)
+{
     mGateTime = gate;
     repaint();
 }
-void LcdComponent::setEditMode (EditMode mode) {
+void LcdComponent::setEditMode(EditMode mode)
+{
     mCurrentMode = mode;
-    repaint(); // モードが変わったら液晶を再描画して反転表示を更新
+    repaint();
+}
+void LcdComponent::setEditParameter (EditParameter parameter)
+{
+    mCurrentParameter = parameter;
+    repaint();
+}
+void LcdComponent::setNumerator(int numrator)
+{
+    mNumerator = numrator;
+    repaint();
+}
+void LcdComponent::setDenominator(int denominator)
+{
+    mDenominator = denominator;
+    repaint();
+}
+void LcdComponent::setTrack(int track)
+{
+    mTrack = track;
+    repaint();
+}
+void LcdComponent::setMidiChannel(int midi)
+{
+    mMidi = midi;
+    repaint();
 }
 
 // JUCEの関数を使ってノート名を取得する
@@ -258,4 +325,30 @@ int LcdComponent::getNoteNumberFromName(const juce::String& inputName)
     }
 
     return -1;
+}
+
+void LcdComponent::addTick(int tick)
+{
+    static constexpr int ticksPerBeat = 96;
+    static constexpr int beatsPerMeasure = 4;
+
+    // 1. 通算Tick（フラット化）に変換
+    int64_t totalTicks = (int64_t)(mMeasure - 1) * beatsPerMeasure * ticksPerBeat
+                       + (int64_t)(mBeat - 1) * ticksPerBeat
+                       + mTick;
+
+    // 2. 加算
+    totalTicks += tick;
+    if (totalTicks < 0) totalTicks = 0; // 安全ガード
+
+    // 3. MBTに再代入
+    int ticksPerMeasure = beatsPerMeasure * ticksPerBeat;
+
+    mMeasure = static_cast<int>(totalTicks / ticksPerMeasure) + 1;
+    int remainingTicks = static_cast<int>(totalTicks % ticksPerMeasure);
+
+    mBeat = (remainingTicks / ticksPerBeat) + 1;
+    mTick = remainingTicks % ticksPerBeat;
+
+    repaint();
 }

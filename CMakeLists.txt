@@ -22,6 +22,8 @@ target_sources(JuceSteps PRIVATE
     Source/LcdComponent.h
     Source/Multi10KeyButton.cpp
     Source/Multi10KeyButton.h
+    Source/JuceStepsMidiManager.cpp
+    Source/JuceStepsMidiManager.h
 )
 
 target_include_directories(JuceSteps PRIVATE
