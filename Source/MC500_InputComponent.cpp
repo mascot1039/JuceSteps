@@ -1,6 +1,8 @@
 #include "MC500_InputComponent.h"
 #include "JuceStepsMidiManager.h"
 #include "LcdComponent.h"
+#include "juce_graphics/juce_graphics.h"
+#include "juce_gui_basics/juce_gui_basics.h"
 
 MC500_InputComponent::MC500_InputComponent()
 {
@@ -42,12 +44,13 @@ MC500_InputComponent::MC500_InputComponent()
         auto* btn = new juce::TextButton();
         btn->setWantsKeyboardFocus(false);
         setupButton (*btn, label);
-        if (label == "SHIFT")
+        if (label == "REC" || label == "SHIFT")
         {
             btn->setClickingTogglesState(true);
         }
         centerButtons.add (btn);
     }
+    centerButtons[0]->setColour(juce::TextButton::buttonOnColourId, juce::Colours::red);
 
     // 4. 右テンキーボタン設定 (10個)
     const std::array<int, 10> number
@@ -186,11 +189,11 @@ MC500_InputComponent::MC500_InputComponent()
             // タイを入力する（一つ前の音符に対して）
             if (lcdArea.getEditMode() == LcdComponent::EditMode::Editing)
             {
-                std::vector<JuceStepEvent>& stepEvents1 = stepData.getStepEvents();
+                std::vector<JuceStepEvent> stepEvents1 = stepData.getStepEvents();
                 if (!stepEvents1.empty())
                 {
-                    JuceStepEvent& event = stepEvents1.back();
-                    if (event.noteNumber >= 0)
+                    JuceStepEvent event = stepEvents1.back();
+                    if (isTieOK == true && event.noteNumber >= 0)
                     {
                         int step = lcdArea.getStepTime();
                         event.stepTime += step;
@@ -199,13 +202,14 @@ MC500_InputComponent::MC500_InputComponent()
                         stepEvent.bar = lcdArea.getMeasure();
                         stepEvent.beat = lcdArea.getBeat();
                         stepEvent.tick = lcdArea.getTick();
-
+                        stepData.changeStepEvent(event);
 
                         std::cout << stepData.getStepEvents().back().bar << "-";
                         std::cout << stepData.getStepEvents().back().beat << "-";
                         std::cout << stepData.getStepEvents().back().tick << "[";
                         std::cout << stepData.getStepEvents().back().stepTime << ",";
                         std::cout << stepData.getStepEvents().back().noteNumber << ",";
+                        std::cout << stepData.getStepEvents().back().velocity << ",";
                         std::cout << stepData.getStepEvents().back().gateTime << "]" << std::endl;
                     }
                 }
@@ -251,6 +255,7 @@ MC500_InputComponent::MC500_InputComponent()
                 stepEvent.bar = lcdArea.getMeasure();
                 stepEvent.beat = lcdArea.getBeat();
                 stepEvent.tick = lcdArea.getTick();
+                isTieOK = false;
             }
         }
         isNoteName = false;
@@ -259,6 +264,100 @@ MC500_InputComponent::MC500_InputComponent()
     // ==============================================================================
     // ★ 中央ボタンのクリック連動
     // ==============================================================================
+    for (auto* btn : centerButtons)
+    {
+        if (btn != nullptr)
+        {
+            btn->onClick = [this, btn]()
+            {
+                if (btn->getButtonText() == "REC")
+                {
+                    if (btn->getToggleState() == true)
+                    {
+                        lcdArea.setEditParameter(LcdComponent::EditParameter::StepTime);
+                        lcdArea.setEditMode(LcdComponent::EditMode::Editing);
+                        centerButtons[1]->setClickingTogglesState(true);
+                    }
+                    else
+                    {
+                        lcdArea.setEditMode(LcdComponent::EditMode::Viewer);
+                        centerButtons[1]->setClickingTogglesState(false);
+                        centerButtons[1]->setToggleState (false, juce::dontSendNotification);
+                    }
+                }
+                else if (btn->getButtonText() == "PAUSE")
+                {
+                }
+                else if (btn->getButtonText() == "FUNC")
+                {
+                    juce::File smf("./smf.mid");
+                    stepData.exportToStandardMidiFile(smf);
+                }
+                else if (btn->getButtonText() == "MICRO")
+                {
+
+                }
+                else if (btn->getButtonText() == "RESET")
+                {
+                    if (lcdArea.getEditMode() == LcdComponent::EditMode::Editing)
+                    {
+                        std::vector<JuceStepEvent> stepEvents1 = stepData.getStepEvents();
+                        if (!stepEvents1.empty())
+                        {
+                            JuceStepEvent event = stepEvents1.back();
+                            if (lcdArea.getMeasure() == event.bar &&
+                                lcdArea.getBeat() == event.beat &&
+                                lcdArea.getTick() == event.tick &&
+                                lcdArea.getStepTime() == event.stepTime &&
+                                lcdArea.getNoteNumber() == event.noteNumber &&
+                                lcdArea.getVelocity() == event.velocity &&
+                                lcdArea.getGateTime() == event.gateTime)
+                            {
+                                stepData.deleteStepEvent();
+                            }
+
+                            stepEvents1 = stepData.getStepEvents();
+                            if (!stepEvents1.empty())
+                            {
+                                // 初期値
+                                stepEvent.bar = 1;
+                                stepEvent.beat = 1;
+                                stepEvent.tick = 0;
+                                stepEvent.stepTime = 24;
+                                stepEvent.noteNumber = 60;
+                                stepEvent.velocity = 64;
+                                stepEvent.gateTime = stepEvent.stepTime * 0.75f;    // 長さの75%
+
+                                lcdArea.setMeasure(stepEvent.bar);
+                                lcdArea.setBeat(stepEvent.beat);
+                                lcdArea.setTick(stepEvent.tick);
+                                lcdArea.setStepTime(stepEvent.stepTime);
+                                lcdArea.setNoteNumber(-1);
+                                lcdArea.setVelocity(-1);
+                                lcdArea.setGateTime(-1);
+                            }
+                            else
+                            {
+                                stepEvent = event;
+                                lcdArea.setMeasure(stepEvent.bar);
+                                lcdArea.setBeat(stepEvent.beat);
+                                lcdArea.setTick(stepEvent.tick);
+                                lcdArea.setStepTime(stepEvent.stepTime);
+                                lcdArea.setNoteNumber(stepEvent.noteNumber);
+                                lcdArea.setVelocity(stepEvent.velocity);
+                                lcdArea.setGateTime(stepEvent.gateTime);
+                            }
+                        }
+                    }
+                }
+                else if (btn->getButtonText() == "STOP")
+                {
+
+                }
+            };
+        }
+    }
+
     auto* shiftBtn = centerButtons.getLast();   // SHIFTボタン
     shiftBtn->onClick = [this, shiftBtn]()
     {
@@ -351,11 +450,25 @@ MC500_InputComponent::MC500_InputComponent()
                             juce::String noteNameOld = lcdArea.getNoteName();
                             if (isNote)
                             {
-                                noteNameNew = inp + " " + noteNameOld.substring(2);
+                                if (noteNameOld == "REST")
+                                {
+                                    noteNameNew = inp + "   ";
+                                }
+                                else
+                                {
+                                    noteNameNew = inp + " " + noteNameOld.substring(2);
+                                }
                             }
                             else
                             {
-                                noteNameNew = noteNameOld.substring(0, 1) + inp + noteNameOld.substring(2);
+                                if (inp == " ")
+                                {
+                                    noteNameNew = "REST";
+                                }
+                                else
+                                {
+                                    noteNameNew = noteNameOld.substring(0, 1) + inp + noteNameOld.substring(2);
+                                }
                             }
                             lcdArea.setNoteName(noteNameNew);
                             isNoteName = true;
@@ -398,8 +511,9 @@ MC500_InputComponent::MC500_InputComponent()
     // ==============================================================================
     // ★ 右のENTERキーのクリック連動
     // ==============================================================================
-    enterButton.onClick = [this]()
+    enterButton.onClick = [this, shiftBtn]()
     {
+        bool isShift = shiftBtn->getToggleState();
         LcdComponent::EditParameter currentEditParameter = lcdArea.getEditParameter();
         switch (currentEditParameter)
         {
@@ -413,6 +527,7 @@ MC500_InputComponent::MC500_InputComponent()
                 stepData.setDenominator(lcdArea.getDenomirator());
                 lcdArea.setEditParameter(LcdComponent::EditParameter::StepTime);
                 lcdArea.setEditMode(LcdComponent::EditMode::Editing);
+                centerButtons[0]->setToggleState(!centerButtons[0]->getToggleState(), juce::NotificationType::dontSendNotification);
                 break;
             case LcdComponent::EditParameter::Bar:
                 break;
@@ -431,11 +546,36 @@ MC500_InputComponent::MC500_InputComponent()
                 break;
             case LcdComponent::EditParameter::Note:
                 stepEvent.noteNumber = lcdArea.getNoteNumber();
-                if (lcdArea.getVelocity() == -1)
+                if (stepEvent.noteNumber == -9)
                 {
-                    lcdArea.setVelocity(stepEvent.velocity);
+                    JuceStepEvent stepEvent1 = stepEvent;
+                    stepEvent1.velocity = 0;
+                    stepEvent1.gateTime = 0;
+                    stepData.addStepEvent(stepEvent1);
+                    // メジャー・ビート・クロックを進める
+                    lcdArea.addTick(lcdArea.getStepTime());
+                    stepEvent.bar = lcdArea.getMeasure();
+                    stepEvent.beat = lcdArea.getBeat();
+                    stepEvent.tick = lcdArea.getTick();
+
+                    isTieOK = false;
+
+                    std::cout << stepData.getStepEvents().back().bar << "-";
+                    std::cout << stepData.getStepEvents().back().beat << "-";
+                    std::cout << stepData.getStepEvents().back().tick << "[";
+                    std::cout << stepData.getStepEvents().back().stepTime << ",";
+                    std::cout << stepData.getStepEvents().back().noteNumber << ",";
+                    std::cout << stepData.getStepEvents().back().velocity << ",";
+                    std::cout << stepData.getStepEvents().back().gateTime << "]" << std::endl;
                 }
-                lcdArea.setEditParameter(LcdComponent::EditParameter::Velocity);
+                else
+                {
+                    if (lcdArea.getVelocity() == -1)
+                    {
+                        lcdArea.setVelocity(stepEvent.velocity);
+                    }
+                    lcdArea.setEditParameter(LcdComponent::EditParameter::Velocity);
+                }
                 break;
             case LcdComponent::EditParameter::Velocity:
                 stepEvent.velocity = lcdArea.getVelocity();
@@ -448,22 +588,34 @@ MC500_InputComponent::MC500_InputComponent()
             case LcdComponent::EditParameter::GateTime:
                 stepEvent.gateTime = lcdArea.getGateTime();
                 stepData.addStepEvent(stepEvent);
-                // メジャー・ビート・クロックを進める
-                lcdArea.addTick(lcdArea.getStepTime());
-                stepEvent.bar = lcdArea.getMeasure();
-                stepEvent.beat = lcdArea.getBeat();
-                stepEvent.tick = lcdArea.getTick();
+                if (centerButtons[1]->getToggleState() == isShift)  // PAUSEとSHIFTが同じ状態
+                {
+                    // メジャー・ビート・クロックを進める
+                    lcdArea.addTick(lcdArea.getStepTime());
+                    stepEvent.bar = lcdArea.getMeasure();
+                    stepEvent.beat = lcdArea.getBeat();
+                    stepEvent.tick = lcdArea.getTick();
+
+                    if (isShift == true)    // SHIFTがONのときはPAUSEをOFFにする
+                    {
+                        centerButtons[1]->triggerClick();
+                    }
+                }
                 // 液晶表示は初期化する
-                lcdArea.setNoteNumber(-1);
+                //lcdArea.setNoteNumber(-1);
+                lcdArea.setNoteNumber(stepEvent.noteNumber);
                 lcdArea.setVelocity(-1);
                 lcdArea.setGateTime(-1);
-                lcdArea.setEditParameter(LcdComponent::EditParameter::StepTime);
+                lcdArea.setEditParameter(LcdComponent::EditParameter::Note);
+
+                isTieOK = true;
 
         std::cout << stepData.getStepEvents().back().bar << "-";
         std::cout << stepData.getStepEvents().back().beat << "-";
         std::cout << stepData.getStepEvents().back().tick << "[";
         std::cout << stepData.getStepEvents().back().stepTime << ",";
         std::cout << stepData.getStepEvents().back().noteNumber << ",";
+        std::cout << stepData.getStepEvents().back().velocity << ",";
         std::cout << stepData.getStepEvents().back().gateTime << "]" << std::endl;
 
                 break;
@@ -610,7 +762,7 @@ void MC500_InputComponent::mouseDown (const juce::MouseEvent& event)
 bool MC500_InputComponent::keyPressed (const juce::KeyPress& key)
 {
     // ==============================================================================
-    // 1. アルファダイヤル（無限回転ノブ）の操作 (リセット同期型)
+    // アルファダイヤル（無限回転ノブ）の操作 (リセット同期型)
     // ==============================================================================
 
     // 【右回転】
@@ -646,9 +798,36 @@ bool MC500_InputComponent::keyPressed (const juce::KeyPress& key)
         rightButton.triggerClick();
         return true;
     }
+    // ==============================================================================
+    // 中央の配列キーの操作
+    // ==============================================================================
+    if (key.getKeyCode() == 'r' || key.getKeyCode() == 'R')         // REC
+    {
+        centerButtons[0]->setToggleState(!centerButtons[0]->getToggleState(), juce::NotificationType::sendNotification);
+    }
+    else if (key.getKeyCode() == 'p' || key.getKeyCode() == 'P')    // PAUSE
+    {
+        centerButtons[1]->setToggleState(!centerButtons[1]->getToggleState(), juce::NotificationType::sendNotification);
+    }
+    else if (key.getKeyCode() == 'f' || key.getKeyCode() == 'F')    // FUNC
+    {
+        centerButtons[2]->triggerClick();
+    }
+    else if (key.getKeyCode() == 'm' || key.getKeyCode() == 'M')    // MICRO
+    {
+        centerButtons[3]->triggerClick();
+    }
+    else if (key.getKeyCode() == juce::KeyPress::backspaceKey)      // RESET
+    {
+        centerButtons[4]->triggerClick();
+    }
+    else if (key.getKeyCode() == juce::KeyPress::escapeKey)         // STOP
+    {
+        centerButtons[5]->triggerClick();
+    }
 
     // ==============================================================================
-    // 2. 右のテンキー配列 (0 〜 9 キー) の操作 【レイアウト順に合わせた修正版】
+    // 右のテンキー配列 (0 〜 9 キー) の操作
     // ==============================================================================
     // キーボードの数字（0〜9）から、numButtons内のインデックスへ変換するマップ
     // 7->0, 8->1, 9->2, 4->3, 5->4, 6->5, 1->6, 2->7, 3->8, 0->9

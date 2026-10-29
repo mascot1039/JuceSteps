@@ -151,7 +151,7 @@ private:
     inline static const std::array<juce::String, 10> noteName
     {
         "A", "B", "C", "D", "E",
-        "F", "G", "b", "#", ""
+        "F", "G", "b", "#", " "
     };
 
     int num;

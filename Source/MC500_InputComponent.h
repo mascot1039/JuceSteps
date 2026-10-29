@@ -173,6 +173,7 @@ private:
 
     bool editParam = false;
     bool isNoteName = false;
+    bool isTieOK = false;
     static constexpr std::array<int, 9> stepTimeValues
     {
         192, 96, 64, 48, 32,

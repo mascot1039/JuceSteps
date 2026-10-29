@@ -29,9 +29,11 @@ public:
     ~JuceStepsMidiManager() = default;
 
     void addStepEvent(const JuceStepEvent& newStep);    // ステップデータを追加
+    void deleteStepEvent();                             // 最後のステップデータを削除する
+    void changeStepEvent(const JuceStepEvent& newStep); // 最後のステップデータを変更
     void clearAll();                                    // データの全消去
-    //const std::vector<JuceStepEvent>& getStepEvents() const;    // イベントリストの取得
-    std::vector<JuceStepEvent>& getStepEvents();    // イベントリストの取得
+    const std::vector<JuceStepEvent>& getStepEvents() const;    // イベントリストの取得
+    //std::vector<JuceStepEvent>& getStepEvents();    // イベントリストの取得
 
     void setNumerator(int numerator);       // 拍子（分子）を設定する
     void setDenominator(int denominator);   // 拍子（分母）を設定する

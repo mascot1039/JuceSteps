@@ -40,7 +40,7 @@ void LcdComponent::paint(juce::Graphics& g) {
         // STEP入力
         // フォーマット：「000-00-000 S:096 N:C 3(060) V:064 G:0096」
         juce::String noteNumber = juce::String::formatted("%03d", mNoteNumber);
-        if (mNoteNumber == -1)
+        if (mNoteNumber < 0)
         {
             noteNumber = "---";
         }
@@ -233,7 +233,7 @@ void LcdComponent::setMidiChannel(int midi)
 juce::String LcdComponent::getMc500StyleNoteName(int noteNumber)
 {
     if (noteNumber < 0 || noteNumber > 127)
-        return "---";
+        return "    ";
 
     // 第1引数: MIDIノート番号 (0-127)
     // 第2引数: true = シャープ表記 (C#), false = フラット表記 (Db)
@@ -263,7 +263,7 @@ juce::String LcdComponent::getMc500StyleNoteName(int noteNumber)
 /**
  * 仕様に完全準拠したノート名からMIDIノート番号を取得する関数
  * @param inputName 入力文字列 (例: "C 4", "Bb5", "C#-1", "G -1")
- * @return MIDIノート番号 (0〜127), 不正な入力・範囲外の場合は -1
+ * @return MIDIノート番号 (0〜127), 不正な入力・範囲外の場合は -1, 休符は-9
  */
 int LcdComponent::getNoteNumberFromName(const juce::String& inputName)
 {
@@ -273,6 +273,9 @@ int LcdComponent::getNoteNumberFromName(const juce::String& inputName)
 
     // 大文字化して扱いやすくする
     juce::String src = inputName.toUpperCase();
+
+    // 休符?
+    if (src == "REST") return -9;
 
     // 2. 各文字の抽出（固定位置）
     char noteChar = src[0]; // 1文字目: 音名 (A〜G)

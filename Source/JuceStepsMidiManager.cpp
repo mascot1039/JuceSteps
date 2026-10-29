@@ -27,12 +27,24 @@ void JuceStepsMidiManager::addStepEvent(const JuceStepEvent& newStep)
 {
     stepEvents.push_back(newStep);
 }
+void JuceStepsMidiManager::deleteStepEvent()
+{
+    if (!stepEvents.empty())
+    {
+        stepEvents.pop_back();
+    }
+}
+void JuceStepsMidiManager::changeStepEvent(const JuceStepEvent& newStep)
+{
+    JuceStepEvent& step = stepEvents.back();
+    step = newStep;
+}
 void JuceStepsMidiManager::clearAll()
 {
     stepEvents.clear();
 }
-//const std::vector<JuceStepEvent>& JuceStepsMidiManager::getStepEvents() const
-std::vector<JuceStepEvent>& JuceStepsMidiManager::getStepEvents()
+const std::vector<JuceStepEvent>& JuceStepsMidiManager::getStepEvents() const
+//std::vector<JuceStepEvent>& JuceStepsMidiManager::getStepEvents()
 {
     return stepEvents;
 }
@@ -72,6 +84,10 @@ bool JuceStepsMidiManager::exportToStandardMidiFile(const juce::File& targetFile
     // 2. 蓄積したMC-50形式のステップデータをループ処理
     for (const auto& step : stepEvents)
     {
+        if (step.noteNumber < 0)    // 休符=-9
+        {
+            continue;
+        }
         double startTick = static_cast<double>(step.getAbsoluteTick());
         double endTick   = startTick + static_cast<double>(step.gateTime);
 
