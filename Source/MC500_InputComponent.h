@@ -190,7 +190,7 @@ private:
     juce::OwnedArray<juce::TextButton> centerButtons;
 
     // 右のテンキー配列
-    juce::OwnedArray<Multi10KeyButton> numButtons;
+    juce::OwnedArray<Multi10KeyButton> numberButtons;
     juce::TextButton enterButton;
 
     // ★カスタムLook&Feelのインスタンスを追加
@@ -204,6 +204,14 @@ private:
     // MIDIデータ
     JuceStepsMidiManager stepData;  // バッファ
     JuceStepEvent stepEvent;        // 入力中（確定前）
+
+    // アルファダイヤルとボタンの処理
+    void alphaDialSlider_onValueChange();
+    void leftButton_onClick();
+    void rightButton_onClick();
+    void centerButton_onClick(juce::TextButton *btn);
+    void numberButton_onClick(Multi10KeyButton *btn);
+    void enterButton_onClick();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MC500_InputComponent)
 };

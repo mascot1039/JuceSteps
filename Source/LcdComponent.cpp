@@ -94,7 +94,7 @@ void LcdComponent::paint(juce::Graphics& g) {
                 highlightX += charWidth * 31.0f;
                 highlightW = charWidth * 2.0f;
                 break;
-            case EditParameter::Bar:
+            case EditParameter::Measure:
                 break;
             case EditParameter::Beat:
                 break;

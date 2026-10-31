@@ -1,14 +1,12 @@
 #pragma once
 #include <juce_core/juce_core.h>
-#include <juce_audio_basics/midi/juce_MidiMessage.h>
-#include <juce_audio_basics/midi/juce_MidiMessageSequence.h>
-#include <juce_audio_basics/midi/juce_MidiFile.h>
+#include <juce_audio_basics/juce_audio_basics.h>
 #include <vector>
 
 // --- MC-50のディスプレイと1対1で対応するステップデータ構造体 ---
 struct JuceStepEvent
 {
-    int bar = 1;            // 小節 (1始まり) [例: 0001]
+    int measure = 1;        // 小節 (1始まり) [例: 0001]
     int beat = 1;           // 拍 (1始まり)   [例: 01]
     int tick = 0;           // 拍内クロック (0始まり) [例: 000]
 

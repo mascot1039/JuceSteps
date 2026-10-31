@@ -8,7 +8,7 @@ int JuceStepEvent::getAbsoluteTick() const
     const int ticksPerQuarterNote = 96; // 1拍 = 96ティック
     const int ticksPerBar = ticksPerQuarterNote * 4; // 1小節 = 384ティック (4/4拍子の場合)
 
-    int zeroBasedBar = bar - 1;
+    int zeroBasedBar = measure - 1;
     int zeroBasedBeat = beat - 1;
 
     return (zeroBasedBar * ticksPerBar) + (zeroBasedBeat * ticksPerQuarterNote) + tick;

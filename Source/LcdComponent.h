@@ -23,7 +23,7 @@ public:
         None,
         Numerator,      // 分子
         Denominator,    // 分母
-        Bar,
+        Measure,
         Beat,
         Tick,
         StepTime,
