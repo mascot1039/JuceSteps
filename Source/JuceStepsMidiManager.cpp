@@ -118,3 +118,47 @@ bool JuceStepsMidiManager::exportToStandardMidiFile(const juce::File& targetFile
     }
     return false;
 }
+
+// ステップイベントを出力する
+void JuceStepsMidiManager::dumpStepEvents()
+{
+    // 1. 出力先のパスを指定（例：デスクトップ上の "output.txt"）
+    juce::File myFile = juce::File::getSpecialLocation(juce::File::SpecialLocationType::userDesktopDirectory)
+                        .getChildFile("JuceSteps_output.txt");
+
+    // 1. 開く前に、もし既存のファイルがあれば削除する（これで確実に上書き・クリーンになります）
+    if (myFile.existsAsFile())
+    {
+        myFile.deleteFile();
+    }
+
+    // 2. ストリームを開いて書き込む
+    // 引数：既存のファイルを上書きするか（false = 上書き, true = 追記）
+    if (std::unique_ptr<juce::FileOutputStream> stream = myFile.createOutputStream())
+    {
+        // 1. Mousepadの誤判定を防ぐBOMを先頭に書き込む
+        const unsigned char utf8_bom[] = { 0xEF, 0xBB, 0xBF };
+        stream->write(utf8_bom, 3);
+
+        // 2. JUCEのメモリバッファを用意（stringstreamの代わり）
+        juce::MemoryOutputStream mo;
+
+        for (auto& step : stepEvents)
+        {
+            // JUCEのStringシステムを使って文字列を結合（<< 演算子が使えます）
+            mo << step.measure << "-"
+               << step.beat << "-"
+               << step.tick << "["
+               << step.stepTime << ","
+               << step.noteNumber << ","
+               << step.velocity << ","
+               << step.gateTime << "]\n"; // Linuxなので \n で改行
+        }
+
+        // 3. バッファに溜まったデータを直接ファイルストリームへ書き出す
+        stream->write(mo.getData(), mo.getDataSize());
+
+        // ストリームのフラッシュ（強制書き込み）
+        stream->flush();
+    }
+}

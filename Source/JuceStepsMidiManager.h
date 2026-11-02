@@ -1,7 +1,7 @@
 #pragma once
+#include <vector>
 #include <juce_core/juce_core.h>
 #include <juce_audio_basics/juce_audio_basics.h>
-#include <vector>
 
 // --- MC-50のディスプレイと1対1で対応するステップデータ構造体 ---
 struct JuceStepEvent
@@ -44,6 +44,8 @@ public:
 
     // SMF（.midファイル）へのエクスポート
     bool exportToStandardMidiFile(const juce::File& targetFile);
+
+    void dumpStepEvents();
 
 private:
     std::vector<JuceStepEvent> stepEvents;

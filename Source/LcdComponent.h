@@ -1,5 +1,6 @@
 #pragma once
 #include <juce_gui_basics/juce_gui_basics.h>
+#include "EditMode.h"
 
 // MC-50風 液晶画面コンポーネント
 class LcdComponent : public juce::Component {
@@ -9,12 +10,6 @@ public:
 
     void paint(juce::Graphics& g) override;
 
-    enum class EditMode
-    {
-        TimeSignature,
-        Editing,
-        Viewer
-    };
     void setEditMode(EditMode mode);
     EditMode getEditMode() const { return mCurrentMode; }
 
@@ -59,7 +54,7 @@ public:
     int getVelocity() const { return mVelocity; }
     int getGateTime() const { return mGateTime; }
     int getNumerator() const { return mNumerator; }
-    int getDenomirator() const { return mDenominator; }
+    int getDenominator() const { return mDenominator; }
     int getTrack() const { return mTrack; }
     int getMidiChannel() const { return mMidi; }
 

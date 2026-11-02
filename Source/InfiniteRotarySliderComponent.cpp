@@ -8,8 +8,6 @@
   ==============================================================================
 */
 
-//#include <JuceHeader.h>
-#include <juce_gui_basics/juce_gui_basics.h>
 #include "InfiniteRotarySliderComponent.h"
 
 InfiniteRotarySliderComponent::InfiniteRotarySliderComponent()
@@ -63,15 +61,15 @@ void InfiniteRotarySliderComponent::paint (juce::Graphics& g)
                   lineThickness);
 
     /** Add marks */
-    float rectW = 1.0f;
-    float rectH = 10.0f;
+    //float rectW = 1.0f;
+    //float rectH = 10.0f;
 
     juce::Path p;
 
-    p.addRectangle((getWidth() - rectW) * 0.5f,
-                   getHeight() * 0.5f - radius,
-                   rectW,
-                   rectH);
+    //p.addRectangle((getWidth() - rectW) * 0.5f,
+    //               getHeight() * 0.5f - radius,
+    //               rectW,
+    //               rectH);
 
     /** Rotate the mark to show slider's rotation */
     p.applyTransform(
@@ -83,24 +81,24 @@ void InfiniteRotarySliderComponent::paint (juce::Graphics& g)
     g.fillPath(p);
 
     /** Fill the whole circle with marks */
-    for (int i{}; i < 19; ++i) {
-        p.applyTransform(
-            juce::AffineTransform::rotation(
-                0.1f * juce::MathConstants<float>::pi,
-                getWidth() * 0.5,
-                getHeight() * 0.5));
-        g.fillPath(p);
-    }
+    //for (int i{}; i < 19; ++i) {
+    //    p.applyTransform(
+    //        juce::AffineTransform::rotation(
+    //            0.1f * juce::MathConstants<float>::pi,
+    //            getWidth() * 0.5,
+    //            getHeight() * 0.5));
+    //    g.fillPath(p);
+    //}
 
     /** Add knob handle (just a spot) */
-    float spotR = 10.0f;
+    //float spotR = 10.0f;
 
     juce::Path spot;
 
-    spot.addEllipse(getWidth() * 0.5f - spotR ,
-                 getHeight() * 0.5f - radius + spotR * 2.0f,
-                 spotR * 2.0f,
-                 spotR * 2.0f);
+    //spot.addEllipse(getWidth() * 0.5f - spotR ,
+    //             getHeight() * 0.5f - radius + spotR * 2.0f,
+    //             spotR * 2.0f,
+    //             spotR * 2.0f);
 
     spot.applyTransform(
         juce::AffineTransform::rotation(

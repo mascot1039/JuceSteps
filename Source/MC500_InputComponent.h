@@ -4,6 +4,7 @@
 #include <juce_core/juce_core.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_graphics/juce_graphics.h>
+#include "EditMode.h"
 #include "InfiniteRotarySliderComponent.h"
 #include "LcdComponent.h"
 #include "Multi10KeyButton.h"
@@ -53,16 +54,34 @@ public:
 
         // 4. インジケーター（指標線）の描画
         // つまみがグレーになったため、指標線は「黒（または濃いグレー）」にすると見やすくなります
-        juce::Path p;
-        auto pointerLength = radius * 0.8f;
-        auto pointerThickness = 3.0f;
+        //juce::Path p;
+        //auto pointerLength = radius * 0.8f;
+        //auto pointerThickness = 3.0f;
 
-        p.addRectangle (-pointerThickness * 0.5f, -pointerLength, pointerThickness, radius * 0.25f);
-        p.applyTransform (juce::AffineTransform::rotation (currentAngle).translated (centreX, centreY));
+        //p.addRectangle (-pointerThickness * 0.5f, -pointerLength, pointerThickness, radius * 0.25f);
+        //p.applyTransform (juce::AffineTransform::rotation (currentAngle).translated (centreX, centreY));
 
-        g.setColour(juce::Colour (0xFFECEAE4));
-        //g.setColour (juce::Colour (0xFF2A2A2A)); // ★ 指標線を濃いグレーに変更して視認性を確保
-        g.fillPath (p);
+        //g.setColour(juce::Colour (0xFFECEAE4));
+        ////g.setColour (juce::Colour (0xFF2A2A2A)); // ★ 指標線を濃いグレーに変更して視認性を確保
+        //g.fillPath (p);
+
+
+        // 4. 指標となる「丸」の位置を計算
+        // ノブの中心からどれくらい離れた位置に丸を配置するか（半径の 60% の位置）
+        auto indicatorDistance = radius * 0.60f;
+
+        auto dotX = centreX + indicatorDistance * std::sin (currentAngle);
+        auto dotY = centreY - indicatorDistance * std::cos (currentAngle);
+
+        // 丸のサイズ（直径）
+        auto dotRadius = 32.0f;
+
+        // 5. 丸を描画
+        g.setColour (juce::Colours::white);
+        g.drawEllipse (dotX - (dotRadius * 0.5f),
+                       dotY - (dotRadius * 0.5f),
+                       dotRadius,
+                       dotRadius, 1.5f);
     }
 
 private:
@@ -174,12 +193,21 @@ private:
     bool editParam = false;
     bool isNoteName = false;
     bool isTieOK = false;
+
+    static constexpr std::array<int, 4> denominatorValues
+    {
+        16, 8, 4, 2
+    };
+    int denominatorIndex = 2;       // 初期値 4
+    int FindDenominatorIndex(int denominatorNum);
+
     static constexpr std::array<int, 9> stepTimeValues
     {
         192, 96, 64, 48, 32,
          24, 16, 12,  6
     };
-    std::size_t stepTimeIndex = 1;   // 初期値 96
+    int stepTimeIndex = 1;          // 初期値 96
+    int FindStepTimeIndex(int stepTimeNum);
 
     InfiniteRotarySliderComponent alphaDialSlider;
     float dialVisualAngle = 0.0f;

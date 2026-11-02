@@ -1,5 +1,4 @@
 #include "Multi10KeyButton.h"
-#include "juce_core/juce_core.h"
 
 Multi10KeyButton::Multi10KeyButton (int number)
 {

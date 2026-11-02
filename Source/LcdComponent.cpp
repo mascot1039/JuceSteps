@@ -1,6 +1,4 @@
 #include "LcdComponent.h"
-#include <juce_core/juce_core.h>
-#include <juce_graphics/juce_graphics.h>
 #include <juce_audio_basics/midi/juce_MidiMessage.h>
 
 // ==========================================
